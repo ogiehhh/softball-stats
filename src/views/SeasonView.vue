@@ -13,6 +13,7 @@ import {
 } from '@/services/dataService'
 import type { Game, League, Season, SeasonBattingStats } from '@/types/domain'
 import { formatDate, statusLabel } from '@/utils/formatters'
+import { safeDownloadFilename } from '@/utils/statisticsTable'
 
 const props = defineProps<{ seasonId: string }>()
 
@@ -55,6 +56,7 @@ watch(() => props.seasonId, load)
               formatDate(page.data.value.season.end_date)
             }}
             <span>· {{ page.data.value.games.length }} games</span>
+            <span v-if="!page.data.value.season.active">· Completed</span>
           </div>
         </PageHeader>
 
@@ -95,7 +97,15 @@ watch(() => props.seasonId, load)
             empty-title="No batting stats."
             :loading="false"
           >
-            <StatsTable :rows="page.data.value.stats" link-players />
+            <StatsTable
+              :download-filename="
+                safeDownloadFilename(
+                  `${page.data.value.league.name} ${page.data.value.season.name} batting stats`,
+                )
+              "
+              :rows="page.data.value.stats"
+              link-players
+            />
           </DataState>
         </section>
       </template>

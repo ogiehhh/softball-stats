@@ -13,33 +13,57 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="loading" class="state-wrap" aria-live="polite">
-    <v-progress-circular color="primary" indeterminate size="26" width="3" />
-    <span>Loading…</span>
+  <div class="data-state" :aria-busy="loading">
+    <v-alert v-if="!loading && error" border="start" color="error" variant="tonal">
+      <div class="mb-2">{{ error }}</div>
+      <v-btn color="error" size="small" variant="outlined" @click="$emit('retry')">Retry</v-btn>
+    </v-alert>
+
+    <div v-else-if="!loading && empty" class="empty-state">
+      <strong>{{ emptyTitle ?? 'Nothing here yet.' }}</strong>
+      <p v-if="emptyMessage">{{ emptyMessage }}</p>
+    </div>
+
+    <slot v-else />
+
+    <div v-if="loading" class="loading-overlay" aria-live="polite" role="status">
+      <div class="loading-card">
+        <v-progress-circular color="primary" indeterminate size="28" width="3" />
+        <span>Loading&hellip;</span>
+      </div>
+    </div>
   </div>
-
-  <v-alert v-else-if="error" border="start" color="error" variant="tonal">
-    <div class="mb-2">{{ error }}</div>
-    <v-btn color="error" size="small" variant="outlined" @click="$emit('retry')">Retry</v-btn>
-  </v-alert>
-
-  <div v-else-if="empty" class="empty-state">
-    <strong>{{ emptyTitle ?? 'Nothing here yet.' }}</strong>
-    <p v-if="emptyMessage">{{ emptyMessage }}</p>
-  </div>
-
-  <slot v-else />
 </template>
 
 <style scoped>
-.state-wrap {
+.data-state {
+  position: relative;
+}
+
+.loading-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
   display: flex;
-  min-height: 110px;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  color: rgba(var(--v-theme-on-background), 0.74);
+  background: rgba(var(--v-theme-background), 0.52);
+  backdrop-filter: blur(1.5px);
+  cursor: wait;
+}
+
+.loading-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.14);
+  border-radius: 999px;
+  background: rgba(var(--v-theme-surface), 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  color: rgba(var(--v-theme-on-surface), 0.82);
   font-size: 0.88rem;
+  font-weight: 700;
 }
 
 .empty-state {

@@ -40,7 +40,38 @@ Supported scopes are season, league across seasons, individual player, all leagu
 
 The application includes the Vue/Vuetify public statistics experience, typed Supabase access, admin password login and allowlist authorization, reproducible schema/RLS, a deterministic game-free development roster, and Vercel SPA compatibility. The admin can create a game from an active season roster, order its lineup, start it atomically, score offensive plate appearances on a phone, resume after refresh, undo the latest play, and finish the game. Public season and player statistics update directly from the recorded event history.
 
-Admin management includes focused Games, Leagues, and Archived screens. An allowlisted admin can create a league by name; the database generates its URL-safe slug and prevents duplicates. Delete actions are recoverable archives with confirmation: archived games disappear from normal lists, scoring, and statistics but retain their full history and resume state; archived leagues disappear from game setup and suppress their complete branch without rewriting children. Restore reverses only the selected item's archive metadata, including preserving an independently archived child game when its league is restored. Client hard deletion is not supported.
+Admin management includes focused Games, Leagues, Seasons, and Archived screens. An allowlisted
+admin can create a league or season; a new season carries forward that league's latest roster. A
+current season can be marked completed after its unfinished games are resolved. Completed seasons
+remain public history and continue contributing to league and career totals, but do not appear in
+new-game choices or alter the separate statistics of another current season. An admin can reopen a
+completed season when needed.
+
+Admins can also manage a current season roster without creating a game. Adding a player either
+reuses an existing global player who appeared in another league or creates a new global player,
+then adds that player to the selected season roster. The same choice is available from Available
+players while building a new-game lineup; the added player is immediately available and selected.
+Removing a roster membership never deletes the player and is blocked once that player has recorded
+game lineup history in the season.
+
+Each public league page lists its current and completed seasons and shows a league all-time batting
+table aggregated across every visible season. Completed-season counts are included, while rates are
+recalculated from the combined denominators instead of averaging season rates.
+
+Batting tables can be sorted by player or any statistic and downloaded as a descriptive CSV with
+league, season, player, count, and rate columns. CSV is the interchange format for lineup-analysis
+workflows because it is compact, explicit, and directly uploadable to AI assistants. The Players
+page includes all-league career totals and a Hall of Fame that ranks the top three players for a
+user-selected batting category across all time or one selected league season.
+
+Loading uses a translucent blocking overlay. Existing page content remains visible beneath it, but
+cannot be interacted with until the operation finishes.
+
+Delete actions are recoverable archives with confirmation: archived games disappear from normal
+lists, scoring, and statistics but retain their full history and resume state; archived seasons and
+leagues suppress their complete branch without rewriting children. Restore reverses only the
+selected item's archive metadata and preserves independently archived descendants. Client hard
+deletion is not supported.
 
 ## Explicitly out of scope for v1
 

@@ -141,3 +141,28 @@ export function aggregateSeasonStats(lines: SeasonBattingStats[]): BattingCounts
 
   return { ...counts, ...calculateRates(counts) }
 }
+
+export function aggregatePlayerStatistics(lines: SeasonBattingStats[]): SeasonBattingStats[] {
+  const playerLines = new Map<string, SeasonBattingStats[]>()
+  for (const line of lines) {
+    const group = playerLines.get(line.player_id) ?? []
+    group.push(line)
+    playerLines.set(line.player_id, group)
+  }
+
+  return Array.from(playerLines.values())
+    .map((group) => {
+      const first = group[0]
+      if (!first) throw new Error('A statistic is missing its player.')
+      return {
+        ...first,
+        season_id: 'all-time',
+        season_name: 'All time',
+        league_id: 'all-leagues',
+        league_name: 'All leagues',
+        league_slug: '',
+        ...aggregateSeasonStats(group),
+      }
+    })
+    .sort((left, right) => left.player_name.localeCompare(right.player_name))
+}

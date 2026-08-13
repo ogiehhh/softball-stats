@@ -64,6 +64,18 @@ const router = createRouter({
       meta: { requiresAdmin: true },
     },
     {
+      path: '/admin/seasons',
+      name: 'admin-seasons',
+      component: () => import('@/views/AdminSeasonsView.vue'),
+      meta: { requiresAdmin: true },
+    },
+    {
+      path: '/admin/rosters',
+      name: 'admin-rosters',
+      component: () => import('@/views/AdminRostersView.vue'),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: '/admin/archived',
       name: 'admin-archived',
       component: () => import('@/views/AdminArchivedView.vue'),

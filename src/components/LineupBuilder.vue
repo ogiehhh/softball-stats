@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [players: Player[]]
+  'add-player': []
 }>()
 
 const availablePlayers = computed(() => {
@@ -75,7 +76,19 @@ function move(index: number, direction: -1 | 1): void {
       </div>
     </div>
 
-    <h3 class="roster-title">Available players</h3>
+    <div class="roster-heading">
+      <h3 class="roster-title">Available players</h3>
+      <v-btn
+        color="primary"
+        :disabled="disabled"
+        prepend-icon="mdi-account-plus"
+        size="small"
+        variant="outlined"
+        @click="emit('add-player')"
+      >
+        Add new player
+      </v-btn>
+    </div>
     <p v-if="roster.length === 0" class="empty-copy">No active players.</p>
     <p v-else-if="availablePlayers.length === 0" class="empty-copy">All players selected.</p>
     <div v-else class="available-list">
@@ -148,11 +161,19 @@ function move(index: number, direction: -1 | 1): void {
 }
 
 .roster-title {
-  margin: 24px 0 10px;
+  margin: 0;
   color: rgba(var(--v-theme-on-surface), 0.74);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.roster-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 24px 0 10px;
 }
 </style>

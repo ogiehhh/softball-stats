@@ -3,16 +3,23 @@ import { onMounted, watch } from 'vue'
 
 import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatsTable from '@/components/StatsTable.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
-import { fetchLeagueBySlug, fetchSeasonsForLeague } from '@/services/dataService'
-import type { League, Season } from '@/types/domain'
+import {
+  fetchLeagueBySlug,
+  fetchLeagueStatistics,
+  fetchSeasonsForLeague,
+} from '@/services/dataService'
+import type { League, Season, SeasonBattingStats } from '@/types/domain'
 import { formatDate } from '@/utils/formatters'
+import { safeDownloadFilename } from '@/utils/statisticsTable'
 
 const props = defineProps<{ leagueSlug: string }>()
 
 interface LeaguePageData {
   league: League
   seasons: Season[]
+  stats: SeasonBattingStats[]
 }
 
 const page = useAsyncResource<LeaguePageData>()
@@ -20,8 +27,11 @@ const page = useAsyncResource<LeaguePageData>()
 function load(): Promise<void> {
   return page.load(async () => {
     const league = await fetchLeagueBySlug(props.leagueSlug)
-    const seasons = await fetchSeasonsForLeague(league.id)
-    return { league, seasons }
+    const [seasons, stats] = await Promise.all([
+      fetchSeasonsForLeague(league.id),
+      fetchLeagueStatistics(league.id),
+    ])
+    return { league, seasons, stats }
   })
 }
 
@@ -57,11 +67,33 @@ watch(() => props.leagueSlug, load)
                   </small>
                 </span>
                 <span class="season-status">
-                  <small v-if="season.active">Active</small>
+                  <small :class="{ completed: !season.active }">
+                    {{ season.active ? 'Current' : 'Completed' }}
+                  </small>
                   <v-icon icon="mdi-chevron-right" size="20" />
                 </span>
               </RouterLink>
             </div>
+          </DataState>
+        </section>
+
+        <section class="all-time-section" aria-labelledby="all-time-heading">
+          <div class="section-heading">
+            <h2 id="all-time-heading" class="section-label">League all time</h2>
+            <span>{{ page.data.value.stats.length }} players</span>
+          </div>
+          <DataState
+            :empty="page.data.value.stats.length === 0"
+            empty-title="No league statistics yet."
+            :loading="false"
+          >
+            <StatsTable
+              :download-filename="
+                safeDownloadFilename(`${page.data.value.league.name} all-time batting stats`)
+              "
+              :rows="page.data.value.stats"
+              link-players
+            />
           </DataState>
         </section>
       </template>
@@ -71,7 +103,7 @@ watch(() => props.leagueSlug, load)
 
 <style scoped>
 .compact-shell {
-  max-width: 760px;
+  max-width: 1100px;
 }
 
 .section-label {
@@ -119,5 +151,21 @@ watch(() => props.leagueSlug, load)
 
 .season-status small {
   color: rgb(var(--v-theme-success));
+}
+.season-status small.completed {
+  color: rgba(var(--v-theme-on-background), 0.68);
+}
+.all-time-section {
+  margin-top: 32px;
+}
+.section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.section-heading > span {
+  color: rgba(var(--v-theme-on-background), 0.68);
+  font-size: 0.75rem;
 }
 </style>

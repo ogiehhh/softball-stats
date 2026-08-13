@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
-import type { League, ManagedGameSummary, Season } from '@/types/domain'
+import type { Database } from '@/types/database.generated'
+import type { League, ManagedGameSummary, ManagedSeasonSummary, Season } from '@/types/domain'
 
 export class AdminServiceError extends Error {
   constructor(message: string) {
@@ -39,7 +40,9 @@ async function fetchGameCatalog(): Promise<ManagedGameSummary[]> {
 
 export async function fetchManagedGames(): Promise<ManagedGameSummary[]> {
   const games = await fetchGameCatalog()
-  return games.filter((item) => !item.game.archived_at && !item.league.archived_at)
+  return games.filter(
+    (item) => !item.game.archived_at && !item.season.archived_at && !item.league.archived_at,
+  )
 }
 
 export async function fetchArchivedGames(): Promise<ManagedGameSummary[]> {
@@ -71,6 +74,35 @@ export async function fetchArchivedLeagues(): Promise<League[]> {
   return data
 }
 
+async function fetchSeasonCatalog(): Promise<ManagedSeasonSummary[]> {
+  assertConfigured()
+  const [seasonsResult, leaguesResult] = await Promise.all([
+    supabase.from('seasons').select('*').order('start_date', { ascending: false }),
+    supabase.from('leagues').select('*'),
+  ])
+
+  if (seasonsResult.error || leaguesResult.error) {
+    throw new AdminServiceError('Unable to load season management data.')
+  }
+
+  const leagues = new Map<string, League>(leaguesResult.data.map((league) => [league.id, league]))
+  return seasonsResult.data.map((season) => {
+    const league = leagues.get(season.league_id)
+    if (!league) throw new AdminServiceError('A season is missing its league.')
+    return { season, league }
+  })
+}
+
+export async function fetchManagedSeasons(): Promise<ManagedSeasonSummary[]> {
+  const seasons = await fetchSeasonCatalog()
+  return seasons.filter((item) => !item.season.archived_at && !item.league.archived_at)
+}
+
+export async function fetchArchivedSeasons(): Promise<ManagedSeasonSummary[]> {
+  const seasons = await fetchSeasonCatalog()
+  return seasons.filter((item) => Boolean(item.season.archived_at))
+}
+
 function friendlyActionError(error: { code?: string; message: string }): AdminServiceError {
   if (error.code === '42501' || /authorization|permission|authentication/i.test(error.message)) {
     return new AdminServiceError('Your admin session is not authorized for this action.')
@@ -81,6 +113,22 @@ function friendlyActionError(error: { code?: string; message: string }): AdminSe
     return new AdminServiceError('This item is already restored.')
   if (/not found/i.test(error.message))
     return new AdminServiceError('This item could not be found.')
+  if (/already on the season roster/i.test(error.message)) {
+    return new AdminServiceError('This player is already on the season roster.')
+  }
+  if (/player with this name already exists/i.test(error.message)) {
+    return new AdminServiceError(
+      'A player with this name already exists. Choose “Played in another league” instead.',
+    )
+  }
+  if (/recorded game history/i.test(error.message)) {
+    return new AdminServiceError(
+      'This player has game history in the season and cannot be removed from its roster.',
+    )
+  }
+  if (error.code === '23505' && /season/i.test(error.message)) {
+    return new AdminServiceError('A season with this name already exists in that league.')
+  }
   if (error.code === '23505' || /already exists/i.test(error.message)) {
     return new AdminServiceError('A league with this name already exists.')
   }
@@ -94,6 +142,82 @@ export async function createLeague(name: string): Promise<string> {
   if (error) throw friendlyActionError(error)
   if (!data) throw new AdminServiceError('The league was not created.')
   return data
+}
+
+export async function createSeason(
+  leagueId: string,
+  name: string,
+  startDate: string | null,
+  endDate: string | null,
+): Promise<string> {
+  assertConfigured()
+  const parameters: Database['public']['Functions']['create_season']['Args'] = {
+    p_league_id: leagueId,
+    p_name: name,
+  }
+  if (startDate) parameters.p_start_date = startDate
+  if (endDate) parameters.p_end_date = endDate
+
+  const { data, error } = await supabase.rpc('create_season', parameters)
+  if (error) throw friendlyActionError(error)
+  if (!data) throw new AdminServiceError('The season was not created.')
+  return data
+}
+
+export async function createPlayerForSeason(
+  seasonId: string,
+  displayName: string,
+): Promise<string> {
+  assertConfigured()
+  const { data, error } = await supabase.rpc('create_player_for_season', {
+    p_season_id: seasonId,
+    p_display_name: displayName,
+  })
+  if (error) throw friendlyActionError(error)
+  if (!data) throw new AdminServiceError('The player was not created.')
+  return data
+}
+
+export async function addExistingPlayerToSeason(seasonId: string, playerId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('add_existing_player_to_season', {
+    p_season_id: seasonId,
+    p_player_id: playerId,
+  })
+  if (error) throw friendlyActionError(error)
+}
+
+export async function removePlayerFromSeason(seasonId: string, playerId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('remove_player_from_season', {
+    p_season_id: seasonId,
+    p_player_id: playerId,
+  })
+  if (error) throw friendlyActionError(error)
+}
+
+export async function completeSeason(seasonId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('complete_season', { p_season_id: seasonId })
+  if (error) throw friendlyActionError(error)
+}
+
+export async function reopenSeason(seasonId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('reopen_season', { p_season_id: seasonId })
+  if (error) throw friendlyActionError(error)
+}
+
+export async function archiveSeason(seasonId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('archive_season', { p_season_id: seasonId })
+  if (error) throw friendlyActionError(error)
+}
+
+export async function restoreSeason(seasonId: string): Promise<void> {
+  assertConfigured()
+  const { error } = await supabase.rpc('restore_season', { p_season_id: seasonId })
+  if (error) throw friendlyActionError(error)
 }
 
 export async function archiveGame(gameId: string): Promise<void> {

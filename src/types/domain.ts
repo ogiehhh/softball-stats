@@ -37,6 +37,10 @@ export interface Season {
   start_date: string | null
   end_date: string | null
   active: boolean
+  completed_at: string | null
+  completed_by: string | null
+  archived_at: string | null
+  archived_by: string | null
   created_at: string
   updated_at: string
 }
@@ -131,6 +135,11 @@ export interface InProgressGameSummary {
 
 export interface ManagedGameSummary {
   game: Game
+  season: Season
+  league: League
+}
+
+export interface ManagedSeasonSummary {
   season: Season
   league: League
 }

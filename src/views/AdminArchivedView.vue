@@ -7,14 +7,17 @@ import { useAsyncResource } from '@/composables/useAsyncResource'
 import {
   fetchArchivedGames,
   fetchArchivedLeagues,
+  fetchArchivedSeasons,
   restoreGame,
   restoreLeague,
+  restoreSeason,
 } from '@/services/adminService'
-import type { League, ManagedGameSummary } from '@/types/domain'
+import type { League, ManagedGameSummary, ManagedSeasonSummary } from '@/types/domain'
 import { formatDate } from '@/utils/formatters'
 
 interface ArchivedData {
   leagues: League[]
+  seasons: ManagedSeasonSummary[]
   games: ManagedGameSummary[]
 }
 
@@ -25,17 +28,26 @@ const actionError = ref('')
 
 function loadArchived(): Promise<void> {
   return archived.load(async () => {
-    const [leagues, games] = await Promise.all([fetchArchivedLeagues(), fetchArchivedGames()])
-    return { leagues, games }
+    const [leagues, seasons, games] = await Promise.all([
+      fetchArchivedLeagues(),
+      fetchArchivedSeasons(),
+      fetchArchivedGames(),
+    ])
+    return { leagues, seasons, games }
   })
 }
 
-async function runRestore(kind: 'game' | 'league', id: string, name: string): Promise<void> {
+async function runRestore(
+  kind: 'game' | 'league' | 'season',
+  id: string,
+  name: string,
+): Promise<void> {
   actionLoading.value = `${kind}:${id}`
   actionMessage.value = ''
   actionError.value = ''
   try {
     if (kind === 'game') await restoreGame(id)
+    else if (kind === 'season') await restoreSeason(id)
     else await restoreLeague(id)
     actionMessage.value = `${name} was restored.`
     await loadArchived()
@@ -54,7 +66,7 @@ onMounted(loadArchived)
     <PageHeader
       back-to="/admin"
       title="Archived"
-      description="Restore deleted games and leagues without losing history."
+      description="Restore deleted games, seasons, and leagues without losing history."
     />
 
     <v-alert v-if="actionMessage" class="mb-4" color="success" closable variant="tonal">{{
@@ -69,6 +81,7 @@ onMounted(loadArchived)
         Boolean(
           archived.data.value &&
           !archived.data.value.leagues.length &&
+          !archived.data.value.seasons.length &&
           !archived.data.value.games.length,
         )
       "
@@ -105,8 +118,38 @@ onMounted(loadArchived)
       </section>
 
       <section
+        v-if="archived.data.value?.seasons.length"
+        class="item-section"
+        aria-labelledby="archived-seasons-heading"
+      >
+        <h2 id="archived-seasons-heading" class="section-title">Seasons</h2>
+        <div class="management-list">
+          <article
+            v-for="item in archived.data.value.seasons"
+            :key="item.season.id"
+            class="management-row"
+          >
+            <div class="row-copy">
+              <h3>{{ item.season.name }}</h3>
+              <p>{{ item.league.name }} · Deleted {{ formatDate(item.season.archived_at) }}</p>
+              <p v-if="item.league.archived_at" class="parent-note">Restore the league first.</p>
+            </div>
+            <v-btn
+              color="primary"
+              size="small"
+              variant="outlined"
+              :disabled="Boolean(item.league.archived_at)"
+              :loading="actionLoading === 'season:' + item.season.id"
+              @click="runRestore('season', item.season.id, item.season.name)"
+              >Restore</v-btn
+            >
+          </article>
+        </div>
+      </section>
+
+      <section
         v-if="archived.data.value?.games.length"
-        class="games-section"
+        class="item-section"
         aria-labelledby="archived-games-heading"
       >
         <h2 id="archived-games-heading" class="section-title">Games</h2>
@@ -123,12 +166,15 @@ onMounted(loadArchived)
                 {{ formatDate(item.game.played_at) }}
               </p>
               <p v-if="item.league.archived_at" class="parent-note">Restore the league first.</p>
+              <p v-else-if="item.season.archived_at" class="parent-note">
+                Restore the season first.
+              </p>
             </div>
             <v-btn
               color="primary"
               size="small"
               variant="outlined"
-              :disabled="Boolean(item.league.archived_at)"
+              :disabled="Boolean(item.league.archived_at || item.season.archived_at)"
               :loading="actionLoading === `game:${item.game.id}`"
               @click="runRestore('game', item.game.id, `Game vs. ${item.game.opponent}`)"
               >Restore</v-btn
@@ -144,7 +190,7 @@ onMounted(loadArchived)
 .management-shell {
   max-width: 900px;
 }
-.games-section {
+.item-section {
   margin-top: 30px;
 }
 .management-list {

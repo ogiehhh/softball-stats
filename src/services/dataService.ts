@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database.generated'
 import type { Game, League, Player, Season, SeasonBattingStats } from '@/types/domain'
+import { aggregateSeasonStats } from '@/utils/statistics'
 
 type SeasonStatsRow = Database['public']['Views']['season_batting_stats']['Row']
 
@@ -109,6 +110,7 @@ export async function fetchSeasonsForLeague(leagueId: string): Promise<Season[]>
     .from('seasons')
     .select('*')
     .eq('league_id', leagueId)
+    .is('archived_at', null)
     .order('start_date', { ascending: false, nullsFirst: false })
 
   if (error) throwQueryError('Unable to load seasons', error)
@@ -122,7 +124,12 @@ export async function fetchActiveSeasonsForLeague(leagueId: string): Promise<Sea
 
 export async function fetchSeason(seasonId: string): Promise<Season> {
   assertConfigured()
-  const { data, error } = await supabase.from('seasons').select('*').eq('id', seasonId).single()
+  const { data, error } = await supabase
+    .from('seasons')
+    .select('*')
+    .eq('id', seasonId)
+    .is('archived_at', null)
+    .single()
 
   if (error) throwQueryError('Unable to load season', error)
   await fetchLeague(data.league_id)
@@ -152,6 +159,37 @@ export async function fetchSeasonStatistics(seasonId: string): Promise<SeasonBat
 
   if (error) throwQueryError('Unable to load batting statistics', error)
   return data.map(mapSeasonStats)
+}
+
+export async function fetchLeagueStatistics(leagueId: string): Promise<SeasonBattingStats[]> {
+  assertConfigured()
+  const { data, error } = await supabase
+    .from('season_batting_stats')
+    .select('*')
+    .eq('league_id', leagueId)
+    .order('player_name')
+
+  if (error) throwQueryError('Unable to load league statistics', error)
+
+  const playerLines = new Map<string, SeasonBattingStats[]>()
+  for (const row of data.map(mapSeasonStats)) {
+    const lines = playerLines.get(row.player_id) ?? []
+    lines.push(row)
+    playerLines.set(row.player_id, lines)
+  }
+
+  return Array.from(playerLines.values())
+    .map((lines) => {
+      const first = lines[0]
+      if (!first) throw new DataServiceError('A league statistic is missing its player.')
+      return {
+        ...first,
+        season_id: 'all-time:' + leagueId,
+        season_name: 'All time',
+        ...aggregateSeasonStats(lines),
+      }
+    })
+    .sort((left, right) => left.player_name.localeCompare(right.player_name))
 }
 
 export async function fetchPlayers(): Promise<Player[]> {
@@ -184,5 +222,17 @@ export async function fetchPlayerSeasonStatistics(playerId: string): Promise<Sea
     .order('season_name', { ascending: false })
 
   if (error) throwQueryError('Unable to load player statistics', error)
+  return data.map(mapSeasonStats)
+}
+
+export async function fetchAllSeasonStatistics(): Promise<SeasonBattingStats[]> {
+  assertConfigured()
+  const { data, error } = await supabase
+    .from('season_batting_stats')
+    .select('*')
+    .order('season_name', { ascending: false })
+    .order('player_name')
+
+  if (error) throwQueryError('Unable to load all-time statistics', error)
   return data.map(mapSeasonStats)
 }

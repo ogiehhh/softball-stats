@@ -420,6 +420,10 @@ export type Database = {
       seasons: {
         Row: {
           active: boolean
+          archived_at: string | null
+          archived_by: string | null
+          completed_at: string | null
+          completed_by: string | null
           created_at: string
           end_date: string | null
           id: string
@@ -430,6 +434,10 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
@@ -440,6 +448,10 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
@@ -510,8 +522,14 @@ export type Database = {
       }
     }
     Functions: {
+      add_existing_player_to_season: {
+        Args: { p_player_id: string; p_season_id: string }
+        Returns: string
+      }
       archive_game: { Args: { p_game_id: string }; Returns: string }
       archive_league: { Args: { p_league_id: string }; Returns: string }
+      archive_season: { Args: { p_season_id: string }; Returns: string }
+      complete_season: { Args: { p_season_id: string }; Returns: string }
       create_game_with_lineup: {
         Args: {
           p_league_id: string
@@ -523,6 +541,19 @@ export type Database = {
         Returns: string
       }
       create_league: { Args: { p_name: string }; Returns: string }
+      create_player_for_season: {
+        Args: { p_display_name: string; p_season_id: string }
+        Returns: string
+      }
+      create_season: {
+        Args: {
+          p_end_date?: string
+          p_league_id: string
+          p_name: string
+          p_start_date?: string
+        }
+        Returns: string
+      }
       finish_game: {
         Args: { p_expected_state_updated_at: string; p_game_id: string }
         Returns: string
@@ -538,8 +569,14 @@ export type Database = {
         }
         Returns: string
       }
+      reopen_season: { Args: { p_season_id: string }; Returns: string }
+      remove_player_from_season: {
+        Args: { p_player_id: string; p_season_id: string }
+        Returns: string
+      }
       restore_game: { Args: { p_game_id: string }; Returns: string }
       restore_league: { Args: { p_league_id: string }; Returns: string }
+      restore_season: { Args: { p_season_id: string }; Returns: string }
       undo_last_plate_appearance: {
         Args: { p_expected_state_updated_at: string; p_game_id: string }
         Returns: string

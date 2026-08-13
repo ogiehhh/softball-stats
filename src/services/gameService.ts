@@ -147,6 +147,12 @@ async function fetchLeagueAndSeason(seasonId: string): Promise<{ season: Season;
   if (data.league.archived_at) {
     throw new GameServiceError('This game belongs to an archived league.')
   }
+  if (data.archived_at) {
+    throw new GameServiceError('This game belongs to a deleted season.')
+  }
+  if (!data.active) {
+    throw new GameServiceError('This game belongs to a completed season.')
+  }
   return { season: data, league: data.league }
 }
 
@@ -173,7 +179,9 @@ export async function fetchInProgressGames(): Promise<InProgressGameSummary[]> {
       } catch (loadError) {
         if (
           loadError instanceof GameServiceError &&
-          /archived league|season could not be loaded/i.test(loadError.message)
+          /archived league|deleted season|completed season|season could not be loaded/i.test(
+            loadError.message,
+          )
         ) {
           return null
         }

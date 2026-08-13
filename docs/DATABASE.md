@@ -19,7 +19,8 @@ leagues 1 ── * seasons 1 ── * games 1 ── * plate_appearances
 
 - `players` — one global person. `display_name` is generated from first/last names.
 - `leagues` — distinct team/league context with a URL-safe unique slug.
-- `seasons` — league-specific season and optional date range.
+- `seasons` — league-specific season and optional date range, with separate completed and
+  recoverably archived lifecycle metadata.
 - `season_players` — composite-key roster membership; prevents duplicate membership.
 - `games` — scheduled/draft, in-progress, or completed game with optional final score.
 - `game_lineup` — fixed batting order. Composite foreign keys require lineup players to be on the season roster, and each player/order may appear once per game.
@@ -30,22 +31,76 @@ leagues 1 ── * seasons 1 ── * games 1 ── * plate_appearances
 
 All primary identifiers are UUIDs. Update triggers maintain `updated_at` fields. Foreign keys use restrictive/cascading behavior chosen to protect global players and remove game-owned children together.
 
-`leagues` and `games` also carry nullable `archived_at` and `archived_by` metadata. These columns implement recoverable deletion; archive actions do not remove or rewrite descendant rows.
+`leagues`, `seasons`, and `games` also carry nullable `archived_at` and `archived_by`
+metadata. These columns implement recoverable deletion; archive actions do not remove or rewrite
+descendant rows. Seasons additionally carry `completed_at` and `completed_by`; completion is a
+historical state, not deletion.
 
 ## Recoverable archives
 
-The admin UI labels the archive action as **Delete**, but the application never hard-deletes a league or game. Four authenticated, admin-only `SECURITY INVOKER` RPCs form the write boundary:
+The admin UI labels the archive action as **Delete**, but the application never hard-deletes a
+league, season, or game. Six authenticated, admin-only `SECURITY INVOKER` RPCs form the archive
+write boundary:
 
 - `archive_game` and `restore_game`
+- `archive_season` and `restore_season`
 - `archive_league` and `restore_league`
 
 Archiving a game hides it from normal queries, in-progress lists, scoring, and statistics while preserving its lineup, events, runner movements, score, and exact resume snapshot. Restoring it clears only its archive metadata, so an in-progress game resumes at the same inning, outs, bases, and batter.
 
-Archiving a league suppresses the league and all descendant seasons, games, and statistics without changing archive metadata on those descendants. Restoring the league reveals its non-archived games again. A game archived independently remains archived after its parent league is restored.
+Archiving a season suppresses that season, its games, and its statistics without rewriting child
+rows. Its current/completed state is preserved through restore. Archiving a league suppresses the
+league and all descendant seasons, games, and statistics without changing archive metadata on
+those descendants. Restoring a parent reveals only children that were not archived independently.
 
-RLS uses separate visible-read and admin archive-read policies. Public and routine authenticated reads cannot see archived branches, while an allowlisted admin can populate the Archived screen. `DELETE` is revoked for authenticated clients on leagues and games. Database triggers also reject business writes and scoring-event changes against an archived game or an archived parent league. The four archive RPCs revoke execution from `public` and `anon` and grant it only to `authenticated`; each function still checks `admin_users` explicitly.
+RLS uses separate visible-read and admin archive-read policies. Public and routine authenticated
+reads cannot see archived branches, while an allowlisted admin can populate the Archived screen.
+`DELETE` is revoked for authenticated clients on leagues, seasons, and games. Database triggers
+also reject business writes and scoring-event changes against completed seasons and archived
+branches. Archive RPCs revoke execution from `public` and `anon` and grant it only to
+`authenticated`; each function still checks `admin_users` explicitly.
 
-`season_batting_stats` excludes directly archived games and every game below an archived league. `supabase/tests/database/archive_restore.sql` is a rollback-only connected test covering data preservation, exact scorer resume, statistics removal and recovery, parent/child semantics, write blocking, hard-delete rejection, and anonymous/non-admin denial.
+`season_batting_stats` excludes directly archived games and every game below an archived season
+or league. Completed seasons are deliberately retained. `supabase/tests/database/archive_restore.sql`
+and `season_management.sql` cover preservation, statistics removal/recovery, parent/child
+semantics, hard-delete rejection, and authorization.
+
+## Admin season lifecycle
+
+`public.create_season` creates an active season for an active, visible league after normalizing
+and validating its name and date range. It prevents case-insensitive duplicate names within a
+league and copies the latest visible roster in that league into the new season so it is immediately
+usable for game setup when a prior roster exists.
+
+`complete_season` changes the season from current to historical only when every visible game is
+completed. A completed season no longer appears in scorer season choices, but its public season
+page and per-season statistics remain intact. Its counts continue to participate in league and
+career aggregation. Because every row in `season_batting_stats` remains keyed by `season_id`,
+historical events never leak into a different current season's statistics. `reopen_season` clears
+the completion metadata and makes the season available for new games again.
+
+All five season lifecycle RPCs—create, complete, reopen, archive, and restore—use invoker security,
+an empty `search_path`, an explicit `admin_users` check, and authenticated-only execution grants.
+`supabase/tests/database/season_management.sql` verifies roster carry-forward, date and duplicate
+validation, unfinished-game protection, current-vs-historical statistic isolation, league all-time
+contribution, archive/restore behavior, reopening, hard-delete denial, and anonymous/non-admin
+denial.
+
+## Admin roster management
+
+Players are global records and `season_players` is the roster membership boundary. The admin UI
+supports two explicit add paths: `create_player_for_season` creates one normalized player and its
+season membership atomically, while `add_existing_player_to_season` reuses a global player so
+career totals remain attached to one identity. A case-insensitive unique player-name index prevents
+accidental duplicate identities.
+
+`remove_player_from_season` removes only the membership. It preserves the global player and rejects
+removal if the player appears in any game lineup for that season, ensuring historical games and
+statistics cannot be orphaned. All three RPCs accept only a current, visible season in an active,
+visible league, use invoker security and an empty `search_path`, explicitly check `admin_users`, and
+grant execution only to authenticated users. `supabase/tests/database/roster_management.sql`
+verifies atomic creation, existing-player reuse, duplicate protection, safe removal, history
+protection, and anonymous/non-admin denial.
 
 ## Admin league creation
 
@@ -83,7 +138,10 @@ Every scoring call explicitly checks `auth.uid()` against `admin_users`, uses an
 
 ## Statistics
 
-`season_batting_stats` is a `security_invoker` view that exposes additive counting stats plus zero-safe rates. It counts G from visible, non-draft game lineups, batting results from plate appearances, and R from runner advancements ending at home.
+`season_batting_stats` is a `security_invoker` view that exposes additive counting stats plus
+zero-safe rates. It counts G from visible, non-draft game lineups, batting results from plate
+appearances, and R from runner advancements ending at home. Completed seasons remain eligible;
+archived season, game, and league branches do not.
 
 The view is the reusable aggregation contract:
 
@@ -92,7 +150,13 @@ The view is the reusable aggregation contract:
 - League totals filter by `league_id`, sum the count columns across seasons, then recalculate rates from the summed denominators.
 - Career totals sum count columns across every season for a player and recalculate rates. Never average per-season AVG/OBP/SLG.
 
-The UI exposes season statistics and player career/season totals. `src/utils/statistics.ts` contains count aggregation and rate calculation used by player profiles and focused unit tests. `supabase/tests/database/season_stats.sql` creates an isolated rollback-only fixture to validate the live SQL output without depending on visible application records.
+The UI exposes season statistics, league all-time totals, player career/season totals, global
+all-time totals, and top-three all-time or per-season leaderboards. Public batting tables support
+client-side sorting and descriptive CSV export for lineup analysis.
+`src/utils/statistics.ts` contains count aggregation and rate calculation used by league pages,
+player profiles, and focused unit tests. `supabase/tests/database/season_stats.sql` creates an
+isolated rollback-only fixture to validate the live SQL output without depending on visible
+application records.
 
 ## Security model
 

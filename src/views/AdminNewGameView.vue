@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import DataState from '@/components/DataState.vue'
 import LineupBuilder from '@/components/LineupBuilder.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PlayerRosterDialog from '@/components/PlayerRosterDialog.vue'
 import { fetchActiveSeasonsForLeague, fetchLeagues } from '@/services/dataService'
 import { fetchSeasonRoster, startGame } from '@/services/gameService'
 import type { League, Player, Season } from '@/types/domain'
@@ -25,6 +26,7 @@ const loadingSeason = ref(false)
 const submitting = ref(false)
 const initialError = ref('')
 const errorMessage = ref('')
+const playerDialog = ref(false)
 
 function localToday(): string {
   const now = new Date()
@@ -125,6 +127,17 @@ async function submit(): Promise<void> {
   }
 }
 
+function handlePlayerSaved(player: Player): void {
+  if (!roster.value.some((item) => item.id === player.id)) {
+    roster.value = [...roster.value, player].sort((left, right) =>
+      left.display_name.localeCompare(right.display_name),
+    )
+  }
+  if (!lineup.value.some((item) => item.id === player.id)) {
+    lineup.value = [...lineup.value, player]
+  }
+}
+
 onMounted(loadLeagues)
 </script>
 
@@ -177,7 +190,12 @@ onMounted(loadLeagues)
         </div>
 
         <section v-if="seasonId" class="lineup-section" :aria-busy="loadingSeason">
-          <LineupBuilder v-model="lineup" :disabled="submitting" :roster="roster" />
+          <LineupBuilder
+            v-model="lineup"
+            :disabled="submitting"
+            :roster="roster"
+            @add-player="playerDialog = true"
+          />
         </section>
       </div>
 
@@ -194,6 +212,13 @@ onMounted(loadLeagues)
         </v-btn>
       </div>
     </DataState>
+
+    <PlayerRosterDialog
+      v-model="playerDialog"
+      :roster-player-ids="roster.map((player) => player.id)"
+      :season-id="seasonId"
+      @saved="handlePlayerSaved"
+    />
   </main>
 </template>
 

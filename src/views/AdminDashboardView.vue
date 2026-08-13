@@ -75,8 +75,18 @@ onMounted(loadGames)
         <span><strong>Leagues</strong><small>Active league records</small></span>
         <v-icon icon="mdi-chevron-right" />
       </router-link>
+      <router-link to="/admin/seasons">
+        <span><strong>Seasons</strong><small>Current and past league seasons</small></span>
+        <v-icon icon="mdi-chevron-right" />
+      </router-link>
+      <router-link to="/admin/rosters">
+        <span><strong>Rosters</strong><small>Players in each current season</small></span>
+        <v-icon icon="mdi-chevron-right" />
+      </router-link>
       <router-link to="/admin/archived">
-        <span><strong>Archived</strong><small>Restore deleted games and leagues</small></span>
+        <span
+          ><strong>Archived</strong><small>Restore deleted games, seasons, and leagues</small></span
+        >
         <v-icon icon="mdi-chevron-right" />
       </router-link>
     </nav>

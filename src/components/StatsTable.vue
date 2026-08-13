@@ -1,107 +1,193 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+
 import type { SeasonBattingStats } from '@/types/domain'
 import { formatRate } from '@/utils/formatters'
+import {
+  sortStatistics,
+  statisticColumns,
+  statisticsToCsv,
+  type StatisticSortKey,
+} from '@/utils/statisticsTable'
 
-defineProps<{
-  rows: SeasonBattingStats[]
-  linkPlayers?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    rows: SeasonBattingStats[]
+    linkPlayers?: boolean
+    downloadFilename?: string
+  }>(),
+  {
+    downloadFilename: 'softball-batting-stats.csv',
+  },
+)
 
-const columns: Array<{ key: keyof SeasonBattingStats; label: string; rate?: boolean }> = [
-  { key: 'games', label: 'G' },
-  { key: 'plate_appearances', label: 'PA' },
-  { key: 'at_bats', label: 'AB' },
-  { key: 'hits', label: 'H' },
-  { key: 'doubles', label: '2B' },
-  { key: 'triples', label: '3B' },
-  { key: 'home_runs', label: 'HR' },
-  { key: 'runs', label: 'R' },
-  { key: 'rbi', label: 'RBI' },
-  { key: 'walks', label: 'BB' },
-  { key: 'strikeouts', label: 'K' },
-  { key: 'batting_average', label: 'AVG', rate: true },
-  { key: 'on_base_percentage', label: 'OBP', rate: true },
-  { key: 'slugging_percentage', label: 'SLG', rate: true },
-  { key: 'ops', label: 'OPS', rate: true },
-  { key: 'singles', label: '1B' },
-  { key: 'hit_by_pitch', label: 'HBP' },
-  { key: 'sacrifice_flies', label: 'SF' },
-  { key: 'fielders_choice', label: 'FC' },
-  { key: 'reached_on_error', label: 'ROE' },
-  { key: 'total_bases', label: 'TB' },
-]
+const sortKey = ref<StatisticSortKey>('player_name')
+const sortDirection = ref<'asc' | 'desc'>('asc')
+const sortedRows = computed(() => sortStatistics(props.rows, sortKey.value, sortDirection.value))
+
+function changeSort(key: StatisticSortKey): void {
+  if (sortKey.value === key) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+    return
+  }
+  sortKey.value = key
+  sortDirection.value = key === 'player_name' ? 'asc' : 'desc'
+}
+
+function sortIcon(key: StatisticSortKey): string {
+  if (sortKey.value !== key) return 'mdi-unfold-more-horizontal'
+  return sortDirection.value === 'asc' ? 'mdi-arrow-up' : 'mdi-arrow-down'
+}
+
+function ariaSort(key: StatisticSortKey): 'ascending' | 'descending' | 'none' {
+  if (sortKey.value !== key) return 'none'
+  return sortDirection.value === 'asc' ? 'ascending' : 'descending'
+}
+
+function downloadCsv(): void {
+  const blob = new Blob(['\ufeff', statisticsToCsv(sortedRows.value)], {
+    type: 'text/csv;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = props.downloadFilename
+  link.style.display = 'none'
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
 </script>
 
 <template>
-  <div class="table-frame surface-border">
-    <v-table class="stats-table" density="compact">
-      <thead>
-        <tr>
-          <th class="player-column">Player</th>
-          <th v-for="column in columns" :key="column.key" class="text-end">
-            {{ column.label }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in rows" :key="`${row.season_id}-${row.player_id}`">
-          <td class="player-column font-weight-bold">
-            <RouterLink v-if="linkPlayers" :to="`/players/${row.player_id}`" class="player-link">
-              {{ row.player_name }}
-            </RouterLink>
-            <span v-else>{{ row.player_name }}</span>
-          </td>
-          <td v-for="column in columns" :key="column.key" class="text-end stat-number">
-            {{ column.rate ? formatRate(Number(row[column.key])) : row[column.key] }}
-          </td>
-        </tr>
-      </tbody>
-    </v-table>
+  <div>
+    <div class="table-tools">
+      <span>Click a column heading to sort.</span>
+      <v-btn
+        color="primary"
+        prepend-icon="mdi-download"
+        size="small"
+        variant="outlined"
+        @click="downloadCsv"
+      >
+        Download CSV
+      </v-btn>
+    </div>
+
+    <div class="table-frame surface-border">
+      <v-table class="stats-table" density="compact">
+        <thead>
+          <tr>
+            <th class="player-column" :aria-sort="ariaSort('player_name')">
+              <button type="button" @click="changeSort('player_name')">
+                Player
+                <v-icon :icon="sortIcon('player_name')" size="14" />
+              </button>
+            </th>
+            <th
+              v-for="column in statisticColumns"
+              :key="column.key"
+              :aria-sort="ariaSort(column.key)"
+              class="text-end"
+            >
+              <button type="button" @click="changeSort(column.key)">
+                {{ column.label }}
+                <v-icon :icon="sortIcon(column.key)" size="14" />
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in sortedRows" :key="`${row.season_id}-${row.player_id}`">
+            <td class="player-column font-weight-bold">
+              <RouterLink v-if="linkPlayers" :to="`/players/${row.player_id}`" class="player-link">
+                {{ row.player_name }}
+              </RouterLink>
+              <span v-else>{{ row.player_name }}</span>
+            </td>
+            <td v-for="column in statisticColumns" :key="column.key" class="text-end stat-number">
+              {{ column.rate ? formatRate(row[column.key]) : row[column.key] }}
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.table-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.table-tools span {
+  color: rgba(var(--v-theme-on-background), 0.68);
+  font-size: 0.75rem;
+}
 .table-frame {
   overflow-x: auto;
   border-radius: 6px;
   background: rgb(var(--v-theme-surface));
 }
-
 .stats-table {
-  min-width: 1180px;
+  min-width: 1260px;
 }
-
 .stats-table th {
+  padding: 0;
   color: rgba(var(--v-theme-on-surface), 0.76);
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.05em;
 }
-
+.stats-table th button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 8px;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.stats-table th button:hover,
+.stats-table th button:focus-visible {
+  color: rgb(var(--v-theme-primary));
+}
 .stats-table td {
   height: 38px;
   font-size: 0.78rem;
 }
-
 .player-column {
   position: sticky;
   left: 0;
   z-index: 1;
-  min-width: 132px;
+  min-width: 150px;
   background: rgb(var(--v-theme-surface));
   border-right: 1px solid rgba(var(--v-theme-on-surface), 0.1);
 }
-
 thead .player-column {
   z-index: 2;
   background: rgb(var(--v-theme-surface-variant));
 }
-
+thead .player-column button {
+  justify-content: flex-start;
+}
 .player-link {
   color: rgb(var(--v-theme-secondary));
 }
-
 .player-link:hover {
   text-decoration: underline;
+}
+@media (max-width: 599px) {
+  .table-tools {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>
