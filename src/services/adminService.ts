@@ -81,7 +81,19 @@ function friendlyActionError(error: { code?: string; message: string }): AdminSe
     return new AdminServiceError('This item is already restored.')
   if (/not found/i.test(error.message))
     return new AdminServiceError('This item could not be found.')
+  if (error.code === '23505' || /already exists/i.test(error.message)) {
+    return new AdminServiceError('A league with this name already exists.')
+  }
+  if (error.code === '22023') return new AdminServiceError(error.message)
   return new AdminServiceError('The change was not saved. Please try again.')
+}
+
+export async function createLeague(name: string): Promise<string> {
+  assertConfigured()
+  const { data, error } = await supabase.rpc('create_league', { p_name: name })
+  if (error) throw friendlyActionError(error)
+  if (!data) throw new AdminServiceError('The league was not created.')
+  return data
 }
 
 export async function archiveGame(gameId: string): Promise<void> {

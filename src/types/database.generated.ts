@@ -522,6 +522,7 @@ export type Database = {
         }
         Returns: string
       }
+      create_league: { Args: { p_name: string }; Returns: string }
       finish_game: {
         Args: { p_expected_state_updated_at: string; p_game_id: string }
         Returns: string

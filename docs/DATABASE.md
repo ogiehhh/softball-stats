@@ -47,6 +47,14 @@ RLS uses separate visible-read and admin archive-read policies. Public and routi
 
 `season_batting_stats` excludes directly archived games and every game below an archived league. `supabase/tests/database/archive_restore.sql` is a rollback-only connected test covering data preservation, exact scorer resume, statistics removal and recovery, parent/child semantics, write blocking, hard-delete rejection, and anonymous/non-admin denial.
 
+## Admin league creation
+
+`public.create_league` is the write boundary for adding a league. It normalizes whitespace, limits names to 100 characters, rejects case-insensitive duplicates (including archived leagues that should be restored), and generates a unique URL-safe slug. New leagues are active and unarchived by default.
+
+The function is `SECURITY INVOKER`, explicitly checks `auth.uid()` against `admin_users`, uses an empty controlled `search_path`, revokes execution from `public` and `anon`, and grants execution only to `authenticated`. The underlying insert remains subject to the existing admin-only RLS policy.
+
+`supabase/tests/database/league_management.sql` verifies creation and slug collision handling, duplicate rejection, archive visibility in scorer-style queries, restore behavior, and anonymous/non-admin denial. Like the other connected database tests, it rolls back every fixture.
+
 ## Live-resume tradeoff
 
 Plate appearances and runner advancements remain the historical source of truth. Replaying those events can audit or rebuild game state. `game_states` intentionally duplicates only the small amount of volatile state needed for an immediate phone refresh: inning, outs, next batter, and the three bases. Future scoring writes should update the event rows and snapshot in one database transaction/RPC so they cannot diverge. This is simpler and more reliable on a phone than replaying the full game after every refresh, without storing derived career totals.

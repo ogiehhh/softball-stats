@@ -1,20 +1,58 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
-import { archiveLeague, fetchManagedLeagues } from '@/services/adminService'
+import { archiveLeague, createLeague, fetchManagedLeagues } from '@/services/adminService'
 import type { League } from '@/types/domain'
 
 const leagues = useAsyncResource<League[]>()
 const pendingDelete = ref<League | null>(null)
+const createDialog = ref(false)
+const leagueName = ref('')
+const createLoading = ref(false)
+const createError = ref('')
 const actionLoading = ref(false)
 const actionMessage = ref('')
 const actionError = ref('')
+const canCreate = computed(() => {
+  const nameLength = leagueName.value.trim().length
+  return nameLength > 0 && nameLength <= 100 && !createLoading.value
+})
 
 function loadLeagues(): Promise<void> {
   return leagues.load(fetchManagedLeagues)
+}
+
+function openCreateDialog(): void {
+  leagueName.value = ''
+  createError.value = ''
+  createDialog.value = true
+}
+
+async function submitLeague(): Promise<void> {
+  if (!canCreate.value) {
+    createError.value = 'Enter a league name of 100 characters or fewer.'
+    return
+  }
+
+  createLoading.value = true
+  createError.value = ''
+  actionMessage.value = ''
+  actionError.value = ''
+  const createdName = leagueName.value.trim()
+  try {
+    await createLeague(createdName)
+    createDialog.value = false
+    leagueName.value = ''
+    actionMessage.value = `${createdName} was created.`
+    await loadLeagues()
+  } catch (error) {
+    createError.value = error instanceof Error ? error.message : 'The league was not created.'
+  } finally {
+    createLoading.value = false
+  }
 }
 
 async function confirmDelete(): Promise<void> {
@@ -43,7 +81,13 @@ onMounted(loadLeagues)
       back-to="/admin"
       title="Leagues"
       description="Manage active leagues and their history."
-    />
+    >
+      <div class="mt-4">
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreateDialog">
+          New league
+        </v-btn>
+      </div>
+    </PageHeader>
 
     <v-alert v-if="actionMessage" class="mb-4" color="success" closable variant="tonal">{{
       actionMessage
@@ -71,6 +115,41 @@ onMounted(loadLeagues)
         </article>
       </div>
     </DataState>
+
+    <v-dialog
+      v-model="createDialog"
+      max-width="460"
+      :persistent="createLoading"
+      @update:model-value="!$event && (createError = '')"
+    >
+      <v-card>
+        <form @submit.prevent="submitLeague">
+          <v-card-title>New league</v-card-title>
+          <v-card-text>
+            <v-alert v-if="createError" class="mb-4" color="error" variant="tonal">
+              {{ createError }}
+            </v-alert>
+            <v-text-field
+              v-model="leagueName"
+              autofocus
+              counter="100"
+              label="League name"
+              maxlength="100"
+              placeholder="Monday Rec"
+            />
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn :disabled="createLoading" variant="text" @click="createDialog = false">
+              Cancel
+            </v-btn>
+            <v-btn color="primary" :disabled="!canCreate" :loading="createLoading" type="submit">
+              Create league
+            </v-btn>
+          </v-card-actions>
+        </form>
+      </v-card>
+    </v-dialog>
 
     <v-dialog
       :model-value="Boolean(pendingDelete)"
