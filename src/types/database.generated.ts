@@ -581,6 +581,14 @@ export type Database = {
         Args: { p_expected_state_updated_at: string; p_game_id: string }
         Returns: string
       }
+      update_season_dates: {
+        Args: {
+          p_end_date?: string
+          p_season_id: string
+          p_start_date?: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       base_destination: "first" | "second" | "third" | "home" | "out"

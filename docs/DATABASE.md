@@ -86,6 +86,11 @@ validation, unfinished-game protection, current-vs-historical statistic isolatio
 contribution, archive/restore behavior, reopening, hard-delete denial, and anonymous/non-admin
 denial.
 
+`update_season_dates` lets an enrolled admin correct or clear either date on a visible season while
+preserving its lifecycle state. It validates that an end date does not precede the start date and
+uses the same invoker-security, explicit allowlist, empty-search-path, and authenticated-only
+execution boundaries as the other season functions.
+
 ## Admin roster management
 
 Players are global records and `season_players` is the roster membership boundary. The admin UI
@@ -101,6 +106,10 @@ visible league, use invoker security and an empty `search_path`, explicitly chec
 grant execution only to authenticated users. `supabase/tests/database/roster_management.sql`
 verifies atomic creation, existing-player reuse, duplicate protection, safe removal, history
 protection, and anonymous/non-admin denial.
+
+Setting `players.active` to false is the non-destructive player archive mechanism. It preserves all
+foreign-key relationships and historical scoring events while active-player queries omit the player
+from directories, leaderboards, rosters, and scoring choices.
 
 ## Admin league creation
 

@@ -106,7 +106,11 @@ function leaderValue(row: SeasonBattingStats): string | number {
 function load(): Promise<void> {
   return page.load(async () => {
     const [players, stats] = await Promise.all([fetchPlayers(), fetchAllSeasonStatistics()])
-    return { players, stats }
+    const activePlayerIds = new Set(players.map((player) => player.id))
+    return {
+      players,
+      stats: stats.filter((row) => activePlayerIds.has(row.player_id)),
+    }
   })
 }
 
@@ -115,10 +119,7 @@ onMounted(load)
 
 <template>
   <main class="page-shell players-shell">
-    <PageHeader
-      title="Players"
-      description="Career records, season leaders, and player profiles."
-    />
+    <PageHeader title="Players" />
 
     <DataState
       :empty="page.data.value?.players.length === 0"
@@ -170,7 +171,6 @@ onMounted(load)
         <div class="section-heading">
           <div>
             <h2 id="all-time-heading" class="section-title mb-0">All-time batting</h2>
-            <p>Career totals across every visible league and season.</p>
           </div>
           <span>{{ allTimeStats.length }} players</span>
         </div>
@@ -185,7 +185,6 @@ onMounted(load)
         <div class="section-heading">
           <div>
             <h2 id="directory-heading" class="section-title mb-0">Player directory</h2>
-            <p>Open a player to see their season-by-season career.</p>
           </div>
         </div>
         <v-text-field

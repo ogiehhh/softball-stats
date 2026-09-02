@@ -11,6 +11,7 @@ import {
   fetchManagedLeagues,
   fetchManagedSeasons,
   reopenSeason,
+  updateSeasonDates,
 } from '@/services/adminService'
 import type { League, ManagedSeasonSummary } from '@/types/domain'
 import { formatDate } from '@/utils/formatters'
@@ -26,6 +27,11 @@ const createLoading = ref(false)
 const createError = ref('')
 const pendingComplete = ref<ManagedSeasonSummary | null>(null)
 const pendingDelete = ref<ManagedSeasonSummary | null>(null)
+const editingSeason = ref<ManagedSeasonSummary | null>(null)
+const editStartDate = ref('')
+const editEndDate = ref('')
+const editLoading = ref(false)
+const editError = ref('')
 const actionLoading = ref('')
 const actionMessage = ref('')
 const actionError = ref('')
@@ -39,6 +45,9 @@ const canCreate = computed(() => {
   const datesValid = !startDate.value || !endDate.value || endDate.value >= startDate.value
   return Boolean(leagueId.value && nameLength > 0 && nameLength <= 100 && datesValid)
 })
+const canSaveDates = computed(
+  () => !editStartDate.value || !editEndDate.value || editEndDate.value >= editStartDate.value,
+)
 
 function dateRange(item: ManagedSeasonSummary): string {
   const { start_date: start, end_date: end } = item.season
@@ -66,6 +75,40 @@ function openCreateDialog(): void {
   endDate.value = ''
   createError.value = ''
   createDialog.value = true
+}
+
+function openDateDialog(item: ManagedSeasonSummary): void {
+  editingSeason.value = item
+  editStartDate.value = item.season.start_date ?? ''
+  editEndDate.value = item.season.end_date ?? ''
+  editError.value = ''
+}
+
+function closeDateDialog(): void {
+  if (!editLoading.value) editingSeason.value = null
+}
+
+async function submitDateEdit(): Promise<void> {
+  if (!editingSeason.value || !canSaveDates.value) {
+    editError.value = 'The end date cannot be before the start date.'
+    return
+  }
+
+  const item = editingSeason.value
+  editLoading.value = true
+  editError.value = ''
+  actionError.value = ''
+  actionMessage.value = ''
+  try {
+    await updateSeasonDates(item.season.id, editStartDate.value || null, editEndDate.value || null)
+    editingSeason.value = null
+    actionMessage.value = `${item.season.name} dates were updated.`
+    await loadSeasons()
+  } catch (error) {
+    editError.value = error instanceof Error ? error.message : 'The dates were not updated.'
+  } finally {
+    editLoading.value = false
+  }
 }
 
 async function submitSeason(): Promise<void> {
@@ -201,6 +244,9 @@ onMounted(loadSeasons)
               >
                 Roster
               </v-btn>
+              <v-btn size="small" variant="outlined" @click="openDateDialog(item)">
+                Edit dates
+              </v-btn>
               <v-btn
                 color="primary"
                 size="small"
@@ -297,6 +343,39 @@ onMounted(loadSeasons)
     </v-dialog>
 
     <v-dialog
+      :model-value="Boolean(editingSeason)"
+      max-width="520"
+      :persistent="editLoading"
+      @update:model-value="!$event && closeDateDialog()"
+    >
+      <v-card>
+        <form @submit.prevent="submitDateEdit">
+          <v-card-title>Edit season dates</v-card-title>
+          <v-card-text>
+            <p class="form-note mb-4">
+              {{ editingSeason?.league.name }} · {{ editingSeason?.season.name }}
+            </p>
+            <v-alert v-if="editError" class="mb-4" color="error" variant="tonal">
+              {{ editError }}
+            </v-alert>
+            <div class="date-fields">
+              <v-text-field v-model="editStartDate" label="Start date" type="date" />
+              <v-text-field v-model="editEndDate" label="End date" type="date" />
+            </div>
+            <p class="form-note">Either date may be left blank.</p>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn :disabled="editLoading" variant="text" @click="closeDateDialog">Cancel</v-btn>
+            <v-btn color="primary" :disabled="!canSaveDates" :loading="editLoading" type="submit">
+              Save dates
+            </v-btn>
+          </v-card-actions>
+        </form>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog
       :model-value="Boolean(pendingComplete)"
       max-width="500"
       @update:model-value="!$event && !actionLoading && (pendingComplete = null)"
@@ -385,6 +464,8 @@ onMounted(loadSeasons)
 }
 .row-actions {
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .date-fields > * {
   flex: 1;
@@ -398,7 +479,7 @@ onMounted(loadSeasons)
     width: 100%;
   }
   .row-actions :deep(.v-btn) {
-    flex: 1;
+    flex: 1 1 calc(50% - 4px);
   }
   .date-fields {
     display: block;

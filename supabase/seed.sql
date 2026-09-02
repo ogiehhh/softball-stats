@@ -1,5 +1,5 @@
--- Deterministic development roster. Safe to rerun.
--- Games are intentionally excluded so reset data cannot appear as real results.
+-- Deterministic development shell. Safe to rerun.
+-- Retired sample players remain inactive, and games are intentionally excluded.
 
 insert into public.leagues (id, name, slug, active)
 values ('00000000-0000-4000-8000-000000000001', 'Demo League', 'demo-league', true)
@@ -23,10 +23,10 @@ on conflict (id) do update set
 
 insert into public.players (id, first_name, last_name, active)
 values
-  ('00000000-0000-4000-8000-000000001001', 'Ada', 'Ace', true),
-  ('00000000-0000-4000-8000-000000001002', 'Betty', 'Base', true),
-  ('00000000-0000-4000-8000-000000001003', 'Carla', 'Curve', true),
-  ('00000000-0000-4000-8000-000000001004', 'Dani', 'Diamond', true)
+  ('00000000-0000-4000-8000-000000001001', 'Ada', 'Ace', false),
+  ('00000000-0000-4000-8000-000000001002', 'Betty', 'Base', false),
+  ('00000000-0000-4000-8000-000000001003', 'Carla', 'Curve', false),
+  ('00000000-0000-4000-8000-000000001004', 'Dani', 'Diamond', false)
 on conflict (id) do update set
   first_name = excluded.first_name,
   last_name = excluded.last_name,
@@ -41,4 +41,5 @@ where id in (
   '00000000-0000-4000-8000-000000001003',
   '00000000-0000-4000-8000-000000001004'
 )
+and active
 on conflict (season_id, player_id) do nothing;

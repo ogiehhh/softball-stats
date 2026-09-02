@@ -54,6 +54,9 @@ players while building a new-game lineup; the added player is immediately availa
 Removing a roster membership never deletes the player and is blocked once that player has recorded
 game lineup history in the season.
 
+The Seasons admin screen also allows an admin to correct a current season's optional start and end
+dates. The end date, when present with a start date, cannot precede the start date.
+
 Each public league page lists its current and completed seasons and shows a league all-time batting
 table aggregated across every visible season. Completed-season counts are included, while rates are
 recalculated from the combined denominators instead of averaging season rates.
@@ -63,6 +66,9 @@ league, season, player, count, and rate columns. CSV is the interchange format f
 workflows because it is compact, explicit, and directly uploadable to AI assistants. The Players
 page includes all-league career totals and a Hall of Fame that ranks the top three players for a
 user-selected batting category across all time or one selected league season.
+
+Inactive players remain attached to historical games but are excluded from the public Players
+directory, career table, Hall of Fame, roster choices, and new-game lineup choices.
 
 Loading uses a translucent blocking overlay. Existing page content remains visible beneath it, but
 cannot be interacted with until the operation finishes.

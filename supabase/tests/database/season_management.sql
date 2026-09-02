@@ -101,6 +101,32 @@ begin
   end;
   if not invalid_dates_rejected then raise exception 'reversed season dates were accepted'; end if;
 
+  perform public.update_season_dates(
+    historical_id,
+    '2026-06-05',
+    '2026-08-20'
+  );
+  if not exists (
+    select 1 from public.seasons
+    where id = historical_id
+      and start_date = '2026-06-05'
+      and end_date = '2026-08-20'
+  ) then
+    raise exception 'season date editing did not persist both dates';
+  end if;
+
+  invalid_dates_rejected := false;
+  begin
+    perform public.update_season_dates(
+      historical_id,
+      '2026-08-21',
+      '2026-08-20'
+    );
+  exception when invalid_parameter_value then
+    invalid_dates_rejected := true;
+  end;
+  if not invalid_dates_rejected then raise exception 'reversed edited dates were accepted'; end if;
+
   insert into public.games (id, season_id, played_at, opponent, status, team_score, opponent_score)
   values (
     '50000000-0000-4000-8000-000000000004',
@@ -228,6 +254,16 @@ begin
     action_rejected := true;
   end;
   if not action_rejected then raise exception 'anonymous season creation succeeded'; end if;
+
+  action_rejected := false;
+  begin
+    perform public.update_season_dates(
+      current_setting('test.current_season_id')::uuid, null, null
+    );
+  exception when insufficient_privilege then
+    action_rejected := true;
+  end;
+  if not action_rejected then raise exception 'anonymous season date edit succeeded'; end if;
 end;
 $$;
 
@@ -244,6 +280,16 @@ begin
     action_rejected := true;
   end;
   if not action_rejected then raise exception 'non-admin season archive succeeded'; end if;
+
+  action_rejected := false;
+  begin
+    perform public.update_season_dates(
+      current_setting('test.current_season_id')::uuid, '2026-09-02', '2026-11-30'
+    );
+  exception when insufficient_privilege then
+    action_rejected := true;
+  end;
+  if not action_rejected then raise exception 'non-admin season date edit succeeded'; end if;
 end;
 $$;
 

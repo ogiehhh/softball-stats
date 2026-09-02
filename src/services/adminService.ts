@@ -164,6 +164,22 @@ export async function createSeason(
   return data
 }
 
+export async function updateSeasonDates(
+  seasonId: string,
+  startDate: string | null,
+  endDate: string | null,
+): Promise<void> {
+  assertConfigured()
+  const parameters: Database['public']['Functions']['update_season_dates']['Args'] = {
+    p_season_id: seasonId,
+  }
+  if (startDate) parameters.p_start_date = startDate
+  if (endDate) parameters.p_end_date = endDate
+
+  const { error } = await supabase.rpc('update_season_dates', parameters)
+  if (error) throw friendlyActionError(error)
+}
+
 export async function createPlayerForSeason(
   seasonId: string,
   displayName: string,
