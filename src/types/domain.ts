@@ -101,7 +101,7 @@ export interface RunnerOutcome {
 }
 
 export interface RecordPlayInput {
-  result: PlateAppearanceResult
+  result: Exclude<PlateAppearanceResult, 'hit_by_pitch'>
   rbi: number
   runnerOutcomes: RunnerOutcome[]
 }

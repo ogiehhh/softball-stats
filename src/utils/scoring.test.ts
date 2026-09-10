@@ -7,12 +7,75 @@ import {
   countRuns,
   createDefaultRunnerOutcomes,
   defaultRbi,
+  holdSurvivingRunners,
   validateRunnerOutcomes,
 } from '@/utils/scoring'
 
 const emptyBases: BaseOccupancy = { first: null, second: null, third: null }
 
 describe('scoring defaults', () => {
+  it.each(['groundout', 'sacrifice_fly', 'flyout', 'strikeout'] as const)(
+    'holds all existing runners on a two-out %s',
+    (result) => {
+      const outcomes = createDefaultRunnerOutcomes(
+        result,
+        'batter',
+        {
+          first: 'one',
+          second: 'two',
+          third: 'three',
+        },
+        2,
+      )
+      expect(outcomes.map((outcome) => outcome.endingBase)).toEqual([
+        'third',
+        'second',
+        'first',
+        'out',
+      ])
+      expect(countRuns(outcomes)).toBe(0)
+      expect(defaultRbi(result, outcomes)).toBe(0)
+      expect(validateRunnerOutcomes(outcomes, 2, 0)).toBe('')
+    },
+  )
+
+  it('resets automatic runs when an extra runner out ends the inning, then allows explicit run credit', () => {
+    const outcomes = createDefaultRunnerOutcomes(
+      'groundout',
+      'batter',
+      {
+        first: 'one',
+        second: null,
+        third: 'three',
+      },
+      1,
+    )
+    expect(countRuns(outcomes)).toBe(1)
+    outcomes[1]!.endingBase = 'out'
+    holdSurvivingRunners(outcomes)
+    expect(countRuns(outcomes)).toBe(0)
+    expect(countOuts(outcomes)).toBe(2)
+    outcomes[0]!.endingBase = 'home'
+    expect(validateRunnerOutcomes(outcomes, 1, 1)).toBe('')
+    expect(defaultRbi('groundout', outcomes)).toBe(1)
+  })
+
+  it('allows runners left on base to share a destination only when the inning ends', () => {
+    const outcomes = createDefaultRunnerOutcomes(
+      'single',
+      'batter',
+      {
+        first: 'one',
+        second: null,
+        third: 'three',
+      },
+      2,
+    )
+    outcomes[0]!.endingBase = 'out'
+    holdSurvivingRunners(outcomes)
+    expect(validateRunnerOutcomes(outcomes, 2, 0)).toBe('')
+    expect(validateRunnerOutcomes(outcomes, 1, 0)).toContain('same base')
+  })
   it('places a single on first and advances existing runners one base', () => {
     const outcomes = createDefaultRunnerOutcomes('single', 'batter', {
       first: 'first-runner',

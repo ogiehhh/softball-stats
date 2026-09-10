@@ -12,7 +12,8 @@ export const RESULT_LABELS: Record<PlateAppearanceResult, string> = {
   triple: 'Triple',
   home_run: 'Home run',
   walk: 'Walk',
-  hit_by_pitch: 'Hit by pitch',
+  // Preserve old event history without offering this retired scoring result.
+  hit_by_pitch: 'Reached base',
   strikeout: 'Strikeout',
   groundout: 'Groundout',
   flyout: 'Flyout',
@@ -27,7 +28,7 @@ export const DESTINATION_LABELS: Record<BaseDestination, string> = {
   first: '1B',
   second: '2B',
   third: '3B',
-  home: 'Home',
+  home: 'Run',
   out: 'Out',
 }
 
@@ -76,7 +77,7 @@ function existingRunnerDestination(
   }
   if (result === 'sacrifice_fly') return origin === 'third' ? 'home' : holdDestination(origin)
 
-  if (result === 'walk' || result === 'hit_by_pitch') {
+  if (result === 'walk') {
     if (origin === 'first') return 'second'
     if (origin === 'second' && bases.first) return 'third'
     if (origin === 'third' && bases.first && bases.second) return 'home'
@@ -89,6 +90,7 @@ export function createDefaultRunnerOutcomes(
   result: PlateAppearanceResult,
   batterId: string,
   bases: BaseOccupancy,
+  currentOuts = 0,
 ): RunnerOutcome[] {
   const outcomes: RunnerOutcome[] = occupiedOrigins.flatMap((origin) => {
     const playerId = playerAt(bases, origin)
@@ -115,7 +117,17 @@ export function createDefaultRunnerOutcomes(
     startingBase: 'batter',
     endingBase: batterDestination(result),
   })
+  if (currentOuts + countOuts(outcomes) >= 3) holdSurvivingRunners(outcomes)
   return outcomes
+}
+
+/** An inning-ending play needs explicit run credit after the third out is selected. */
+export function holdSurvivingRunners(outcomes: RunnerOutcome[]): void {
+  for (const outcome of outcomes) {
+    if (outcome.startingBase !== 'batter' && outcome.endingBase !== 'out') {
+      outcome.endingBase = outcome.startingBase
+    }
+  }
 }
 
 export function allowedDestinations(
@@ -156,11 +168,12 @@ export function validateRunnerOutcomes(
     .map((outcome) => outcome.endingBase)
     .filter((destination) => ['first', 'second', 'third'].includes(destination))
 
-  if (new Set(destinations).size !== destinations.length) {
+  const outs = countOuts(outcomes)
+  // Held runners are left on base; there is no next base occupancy after the third out.
+  if (currentOuts + outs < 3 && new Set(destinations).size !== destinations.length) {
     return 'Two runners cannot finish on the same base.'
   }
 
-  const outs = countOuts(outcomes)
   if (outs > 3 - currentOuts) return 'This play records more than three outs in the inning.'
 
   const runs = countRuns(outcomes)

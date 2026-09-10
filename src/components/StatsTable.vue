@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type { SeasonBattingStats } from '@/types/domain'
 import { formatRate } from '@/utils/formatters'
 import {
   sortStatistics,
+  simpleStatisticColumns,
   statisticColumns,
   statisticsToCsv,
   type StatisticSortKey,
@@ -22,6 +23,19 @@ const props = withDefaults(
 )
 
 const sortKey = ref<StatisticSortKey>('player_name')
+const view = ref<'simple' | 'advanced'>('simple')
+const visibleColumns = computed(() =>
+  view.value === 'simple' ? simpleStatisticColumns : statisticColumns,
+)
+watch(view, () => {
+  if (
+    sortKey.value !== 'player_name' &&
+    !visibleColumns.value.some((column) => column.key === sortKey.value)
+  ) {
+    sortKey.value = 'player_name'
+    sortDirection.value = 'asc'
+  }
+})
 const sortDirection = ref<'asc' | 'desc'>('asc')
 const sortedRows = computed(() => sortStatistics(props.rows, sortKey.value, sortDirection.value))
 
@@ -45,7 +59,7 @@ function ariaSort(key: StatisticSortKey): 'ascending' | 'descending' | 'none' {
 }
 
 function downloadCsv(): void {
-  const blob = new Blob(['\ufeff', statisticsToCsv(sortedRows.value)], {
+  const blob = new Blob(['\ufeff', statisticsToCsv(sortedRows.value, visibleColumns.value)], {
     type: 'text/csv;charset=utf-8',
   })
   const url = URL.createObjectURL(blob)
@@ -63,6 +77,10 @@ function downloadCsv(): void {
 <template>
   <div>
     <div class="table-tools">
+      <v-btn-toggle v-model="view" mandatory divided density="compact" aria-label="Statistics view">
+        <v-btn value="simple" :aria-pressed="view === 'simple'">Simple</v-btn>
+        <v-btn value="advanced" :aria-pressed="view === 'advanced'">Advanced</v-btn>
+      </v-btn-toggle>
       <span>Click a column heading to sort.</span>
       <v-btn
         color="primary"
@@ -76,7 +94,11 @@ function downloadCsv(): void {
     </div>
 
     <div class="table-frame surface-border">
-      <v-table class="stats-table" density="compact">
+      <v-table
+        class="stats-table"
+        :class="{ 'stats-table-advanced': view === 'advanced' }"
+        density="compact"
+      >
         <thead>
           <tr>
             <th class="player-column" :aria-sort="ariaSort('player_name')">
@@ -86,7 +108,7 @@ function downloadCsv(): void {
               </button>
             </th>
             <th
-              v-for="column in statisticColumns"
+              v-for="column in visibleColumns"
               :key="column.key"
               :aria-sort="ariaSort(column.key)"
               class="text-end"
@@ -106,7 +128,7 @@ function downloadCsv(): void {
               </RouterLink>
               <span v-else>{{ row.player_name }}</span>
             </td>
-            <td v-for="column in statisticColumns" :key="column.key" class="text-end stat-number">
+            <td v-for="column in visibleColumns" :key="column.key" class="text-end stat-number">
               {{ column.rate ? formatRate(row[column.key]) : row[column.key] }}
             </td>
           </tr>
@@ -122,6 +144,7 @@ function downloadCsv(): void {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 8px;
 }
 .table-tools span {
@@ -134,6 +157,23 @@ function downloadCsv(): void {
   background: rgb(var(--v-theme-surface));
 }
 .stats-table {
+  width: 100%;
+}
+.stats-table:not(.stats-table-advanced) :deep(table) {
+  table-layout: fixed;
+}
+.stats-table:not(.stats-table-advanced) .player-column {
+  width: 40%;
+  min-width: 0;
+}
+.stats-table:not(.stats-table-advanced) td {
+  padding-inline: 6px;
+}
+.stats-table:not(.stats-table-advanced) th button {
+  padding-inline: 3px;
+  gap: 0;
+}
+.stats-table-advanced {
   min-width: 1260px;
 }
 .stats-table th {

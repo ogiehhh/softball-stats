@@ -1,5 +1,7 @@
 # Softball Stats
 
+See [Changes](CHANGELOG.md) for release notes and scoring corrections.
+
 A mobile-first Vue application for live offensive softball scoring plus public player and season batting statistics, with scoring access restricted through Supabase Auth and RLS.
 
 ## Local setup

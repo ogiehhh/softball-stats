@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import type { SeasonBattingStats } from '@/types/domain'
 
-import { safeDownloadFilename, sortStatistics, statisticsToCsv } from './statisticsTable'
+import {
+  safeDownloadFilename,
+  simpleStatisticColumns,
+  sortStatistics,
+  statisticColumns,
+  statisticsToCsv,
+} from './statisticsTable'
 
 function row(name: string, hits: number): SeasonBattingStats {
   return {
@@ -49,9 +55,23 @@ describe('statistics table tools', () => {
 
   it('creates an explicit, AI-friendly CSV and escapes player names', () => {
     const csv = statisticsToCsv([row('Jamie "Jet", Jr.', 2)])
-    expect(csv).toContain('League,Season,Player,Games,Plate appearances,At bats')
-    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",1,4,4,2')
-    expect(csv).toContain(',.500,.500,.500,1.000,')
+    expect(csv).toContain(
+      'League,Season,Player,Batting average,Slugging percentage,On-base percentage,Games',
+    )
+    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1,4,4,2')
+    expect(csv).not.toMatch(/HBP|Hit by pitch/i)
+    expect(statisticColumns.slice(0, 3).map((column) => column.label)).toEqual([
+      'AVG',
+      'SLG',
+      'OBP',
+    ])
+  })
+
+  it('exports only the four displayed statistics in simple view', () => {
+    const csv = statisticsToCsv([row('Alex', 2)], simpleStatisticColumns)
+    expect(csv).toBe(
+      'League,Season,Player,Batting average,On-base percentage,Runs batted in,Home runs\r\nMonday Rec,Fall 2026,Alex,.500,.500,0,0\r\n',
+    )
   })
 
   it('normalizes descriptive download names', () => {

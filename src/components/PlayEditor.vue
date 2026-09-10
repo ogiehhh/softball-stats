@@ -5,7 +5,6 @@ import type {
   BaseDestination,
   BaseOccupancy,
   GameLineupEntry,
-  PlateAppearanceResult,
   Player,
   RecordPlayInput,
   RunnerOutcome,
@@ -16,6 +15,7 @@ import {
   countRuns,
   createDefaultRunnerOutcomes,
   defaultRbi,
+  holdSurvivingRunners,
   DESTINATION_LABELS,
   RESULT_LABELS,
   validateRunnerOutcomes,
@@ -36,14 +36,14 @@ const emit = defineEmits<{
 
 interface ResultGroup {
   label: string
-  results: PlateAppearanceResult[]
+  results: RecordPlayInput['result'][]
 }
 
 const resultGroups: ResultGroup[] = [
   { label: 'Hit', results: ['single', 'double', 'triple', 'home_run'] },
   {
     label: 'Reach',
-    results: ['walk', 'hit_by_pitch', 'fielders_choice', 'reached_on_error'],
+    results: ['walk', 'fielders_choice', 'reached_on_error'],
   },
   {
     label: 'Out',
@@ -51,13 +51,12 @@ const resultGroups: ResultGroup[] = [
   },
 ]
 
-const BUTTON_LABELS: Record<PlateAppearanceResult, string> = {
+const BUTTON_LABELS: Record<RecordPlayInput['result'], string> = {
   single: '1B',
   double: '2B',
   triple: '3B',
   home_run: 'HR',
   walk: 'BB',
-  hit_by_pitch: 'HBP',
   fielders_choice: 'FC',
   reached_on_error: 'ROE',
   strikeout: 'K',
@@ -68,12 +67,13 @@ const BUTTON_LABELS: Record<PlateAppearanceResult, string> = {
   sacrifice_fly: 'Sac Fly',
 }
 
-const selectedResult = ref<PlateAppearanceResult | null>(null)
+const selectedResult = ref<RecordPlayInput['result'] | null>(null)
 const outcomes = ref<RunnerOutcome[]>([])
 const rbi = ref(0)
 
 const outsRecorded = computed(() => countOuts(outcomes.value))
 const runsScored = computed(() => countRuns(outcomes.value))
+const endsInning = computed(() => props.currentOuts + outsRecorded.value >= 3)
 const validationMessage = computed(() =>
   selectedResult.value
     ? validateRunnerOutcomes(outcomes.value, props.currentOuts, rbi.value)
@@ -96,9 +96,14 @@ function reset(): void {
   rbi.value = 0
 }
 
-function chooseResult(result: PlateAppearanceResult): void {
+function chooseResult(result: RecordPlayInput['result']): void {
   selectedResult.value = result
-  outcomes.value = createDefaultRunnerOutcomes(result, props.batter.id, props.bases)
+  outcomes.value = createDefaultRunnerOutcomes(
+    result,
+    props.batter.id,
+    props.bases,
+    props.currentOuts,
+  )
   rbi.value = defaultRbi(result, outcomes.value)
 }
 
@@ -117,7 +122,9 @@ function originLabel(outcome: RunnerOutcome): string {
 function changeDestination(outcome: RunnerOutcome, destination: BaseDestination): void {
   if (!selectedResult.value) return
   const usedDefault = rbi.value === defaultRbi(selectedResult.value, outcomes.value)
+  const alreadyEndedInning = endsInning.value
   outcome.endingBase = destination
+  if (!alreadyEndedInning && endsInning.value) holdSurvivingRunners(outcomes.value)
   rbi.value = usedDefault
     ? defaultRbi(selectedResult.value, outcomes.value)
     : Math.min(rbi.value, runsScored.value)
@@ -136,7 +143,16 @@ function submit(): void {
   })
 }
 
-watch(() => [props.batter.id, props.bases.first, props.bases.second, props.bases.third], reset)
+watch(
+  () => [
+    props.batter.id,
+    props.bases.first,
+    props.bases.second,
+    props.bases.third,
+    props.currentOuts,
+  ],
+  reset,
+)
 
 defineExpose({ reset })
 </script>
@@ -173,6 +189,10 @@ defineExpose({ reset })
     <template v-if="selectedResult">
       <section class="movement-section" aria-labelledby="movement-heading">
         <h3 id="movement-heading">Runners</h3>
+        <p v-if="endsInning" class="inning-end-note" role="status">
+          Third out: runners default to the same base. Choose Run only for a run that counted before
+          the third out.
+        </p>
         <div class="movement-list">
           <div v-for="outcome in outcomes" :key="outcome.playerId" class="movement-row">
             <div class="movement-person">
@@ -321,6 +341,12 @@ defineExpose({ reset })
 
 .movement-list {
   border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.inning-end-note {
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .movement-row {

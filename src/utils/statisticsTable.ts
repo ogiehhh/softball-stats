@@ -12,6 +12,9 @@ export interface StatisticColumn {
 }
 
 export const statisticColumns: StatisticColumn[] = [
+  { key: 'batting_average', label: 'AVG', csvLabel: 'Batting average', rate: true },
+  { key: 'slugging_percentage', label: 'SLG', csvLabel: 'Slugging percentage', rate: true },
+  { key: 'on_base_percentage', label: 'OBP', csvLabel: 'On-base percentage', rate: true },
   { key: 'games', label: 'G', csvLabel: 'Games' },
   { key: 'plate_appearances', label: 'PA', csvLabel: 'Plate appearances' },
   { key: 'at_bats', label: 'AB', csvLabel: 'At bats' },
@@ -23,16 +26,19 @@ export const statisticColumns: StatisticColumn[] = [
   { key: 'rbi', label: 'RBI', csvLabel: 'Runs batted in' },
   { key: 'walks', label: 'BB', csvLabel: 'Walks' },
   { key: 'strikeouts', label: 'K', csvLabel: 'Strikeouts' },
-  { key: 'batting_average', label: 'AVG', csvLabel: 'Batting average', rate: true },
-  { key: 'on_base_percentage', label: 'OBP', csvLabel: 'On-base percentage', rate: true },
-  { key: 'slugging_percentage', label: 'SLG', csvLabel: 'Slugging percentage', rate: true },
   { key: 'ops', label: 'OPS', csvLabel: 'On-base plus slugging', rate: true },
   { key: 'singles', label: '1B', csvLabel: 'Singles' },
-  { key: 'hit_by_pitch', label: 'HBP', csvLabel: 'Hit by pitch' },
   { key: 'sacrifice_flies', label: 'SF', csvLabel: 'Sacrifice flies' },
   { key: 'fielders_choice', label: 'FC', csvLabel: "Fielder's choice" },
   { key: 'reached_on_error', label: 'ROE', csvLabel: 'Reached on error' },
   { key: 'total_bases', label: 'TB', csvLabel: 'Total bases' },
+]
+
+export const simpleStatisticColumns: StatisticColumn[] = [
+  { key: 'batting_average', label: 'AVG', csvLabel: 'Batting average', rate: true },
+  { key: 'on_base_percentage', label: 'OBP', csvLabel: 'On-base percentage', rate: true },
+  { key: 'rbi', label: 'RBIs', csvLabel: 'Runs batted in' },
+  { key: 'home_runs', label: 'HRs', csvLabel: 'Home runs' },
 ]
 
 export function sortStatistics(
@@ -59,20 +65,16 @@ function escapeCsv(value: string | number): string {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
-export function statisticsToCsv(rows: SeasonBattingStats[]): string {
-  const headers = [
-    'League',
-    'Season',
-    'Player',
-    ...statisticColumns.map((column) => column.csvLabel),
-  ]
+export function statisticsToCsv(
+  rows: SeasonBattingStats[],
+  columns: StatisticColumn[] = statisticColumns,
+): string {
+  const headers = ['League', 'Season', 'Player', ...columns.map((column) => column.csvLabel)]
   const lines = rows.map((row) => [
     row.league_name,
     row.season_name,
     row.player_name,
-    ...statisticColumns.map((column) =>
-      column.rate ? formatRate(row[column.key]) : row[column.key],
-    ),
+    ...columns.map((column) => (column.rate ? formatRate(row[column.key]) : row[column.key])),
   ])
   return [headers, ...lines].map((line) => line.map(escapeCsv).join(',')).join('\r\n') + '\r\n'
 }

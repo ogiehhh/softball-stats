@@ -20,17 +20,17 @@ The entire product defaults to a high-readability night theme. Pages use a restr
 
 The admin selects an active league and one of its active seasons, enters the opponent and date, and builds an ordered lineup from that season's roster. Starting the game atomically creates the in-progress game, fixed lineup, and initial resume state. The admin dashboard lists in-progress games, and the admin-only score route reloads the persisted inning, outs, bases, score, and current batter after navigation or refresh.
 
-For each plate appearance, the scorer chooses the official result and confirms where the batter and every occupied runner finished. Smart defaults cover routine hits, walks/HBP, outs, sacrifice flies, fielder's choices, and errors, but every destination remains editable for unusual plays. Runs and outs are derived from those destinations; RBI is separately adjustable up to the number of runs on the play.
+For each plate appearance, the scorer chooses the official result and confirms where the batter and every occupied runner finished. Smart defaults cover routine hits, walks, outs, sacrifice flies, fielder's choices, and errors, but every destination remains editable for unusual plays. On an inning-ending play, surviving runners default to their starting bases; this also applies when an added runner out creates the third out. The scorer can then select Run for a run that counted before the third out. Runs and outs are derived from those destinations; RBI is separately adjustable up to the number of runs on the play.
 
 One transactional database call selects the server-authoritative batter, locks the game and resume state, rejects stale browser state, records the plate appearance and complete runner movement, advances or wraps the batting order, clears the bases on the third out, and synchronizes the team score. Recent plays are visible during scoring. The admin can transactionally undo only the latest play or finish an in-progress game.
 
 ## Statistics
 
-Derive statistics from plate appearances, runner movements, and lineups; never store averages or career totals on a player. Required output is G, PA, AB, H, 1B, 2B, 3B, HR, BB, HBP, K, R, RBI, SF, FC, ROE, TB, AVG, OBP, SLG, and OPS.
+Derive statistics from plate appearances, runner movements, and lineups; never store averages or career totals on a player. Tables open in Simple view with AVG, OBP, RBIs, and HRs after Player. Advanced view begins with AVG, SLG, OBP and includes G, PA, AB, H, 1B, 2B, 3B, HR, BB, K, R, RBI, SF, FC, ROE, TB, and OPS. CSV downloads follow the selected view.
 
 Supported scopes are season, league across seasons, individual player, all leagues/seasons, and career. v1 rules:
 
-- Walk and HBP: no AB, both count as reaching base for OBP.
+- Walk: no AB, counts as reaching base for OBP. Retired historical reach events retain their original OBP contribution but are not selectable or shown as a separate statistic.
 - Sacrifice fly: no AB; included in the OBP denominator.
 - Error and fielder's choice: distinct non-hit results that count as AB.
 - Strikeouts and ordinary batted-ball outs count as AB.
