@@ -4,7 +4,7 @@
 
 - Removed HBP from scoring choices, statistics tables, and CSV exports. Old recorded events remain preserved for historical accuracy; the retired event displays as “Reached base” in play history. New HBP submissions are rejected by the scoring service.
 - Batting tables now open in **Simple** view: Player, **AVG, OBP, RBIs, HRs**. Switch to **Advanced** to see the full remaining statistics. CSV downloads match the selected view.
-- Advanced tables, including the Players page, begin with **AVG, SLG, OBP** immediately after the player name.
+- Advanced tables, including the Players page, begin with **AVG, OBP, SLG, OPS** immediately after the player name.
 - On a play that makes the third out, surviving runners default to their **same base**, with no automatic runs or RBI. This also applies when selecting a runner out turns a play into an inning-ending double play. Select **Run** afterward to credit a run that counted before the third out.
 - Corrected the September 9 game against **Back Door Sliders from 11 runs to 9**. The first-inning third-out groundout incorrectly credited Justin King with a run and Lucas Feinstein with an RBI. The fifth-inning third-out groundout incorrectly credited Michael Kula with a run and Andrew Cronin with an RBI. Removed those two runs and two RBI; all 35 plate appearances and the original hits/outs remain intact.
 

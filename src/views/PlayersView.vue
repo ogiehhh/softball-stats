@@ -132,7 +132,6 @@ onMounted(load)
         <div class="section-heading">
           <div>
             <h2 id="hall-heading" class="section-title mb-0">Hall of Fame</h2>
-            <p>Top three leaders for the category and timeframe you choose.</p>
           </div>
         </div>
 

@@ -56,14 +56,17 @@ describe('statistics table tools', () => {
   it('creates an explicit, AI-friendly CSV and escapes player names', () => {
     const csv = statisticsToCsv([row('Jamie "Jet", Jr.', 2)])
     expect(csv).toContain(
-      'League,Season,Player,Batting average,Slugging percentage,On-base percentage,Games',
+      'League,Season,Player,Batting average,On-base percentage,Slugging percentage,On-base plus slugging,Games',
     )
-    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1,4,4,2')
+    expect(csv).toContain(
+      'Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1.000,1,4,4,2',
+    )
     expect(csv).not.toMatch(/HBP|Hit by pitch/i)
-    expect(statisticColumns.slice(0, 3).map((column) => column.label)).toEqual([
+    expect(statisticColumns.slice(0, 4).map((column) => column.label)).toEqual([
       'AVG',
-      'SLG',
       'OBP',
+      'SLG',
+      'OPS',
     ])
   })
 

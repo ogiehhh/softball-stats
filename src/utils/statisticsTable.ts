@@ -13,8 +13,9 @@ export interface StatisticColumn {
 
 export const statisticColumns: StatisticColumn[] = [
   { key: 'batting_average', label: 'AVG', csvLabel: 'Batting average', rate: true },
-  { key: 'slugging_percentage', label: 'SLG', csvLabel: 'Slugging percentage', rate: true },
   { key: 'on_base_percentage', label: 'OBP', csvLabel: 'On-base percentage', rate: true },
+  { key: 'slugging_percentage', label: 'SLG', csvLabel: 'Slugging percentage', rate: true },
+  { key: 'ops', label: 'OPS', csvLabel: 'On-base plus slugging', rate: true },
   { key: 'games', label: 'G', csvLabel: 'Games' },
   { key: 'plate_appearances', label: 'PA', csvLabel: 'Plate appearances' },
   { key: 'at_bats', label: 'AB', csvLabel: 'At bats' },
@@ -26,7 +27,6 @@ export const statisticColumns: StatisticColumn[] = [
   { key: 'rbi', label: 'RBI', csvLabel: 'Runs batted in' },
   { key: 'walks', label: 'BB', csvLabel: 'Walks' },
   { key: 'strikeouts', label: 'K', csvLabel: 'Strikeouts' },
-  { key: 'ops', label: 'OPS', csvLabel: 'On-base plus slugging', rate: true },
   { key: 'singles', label: '1B', csvLabel: 'Singles' },
   { key: 'sacrifice_flies', label: 'SF', csvLabel: 'Sacrifice flies' },
   { key: 'fielders_choice', label: 'FC', csvLabel: "Fielder's choice" },

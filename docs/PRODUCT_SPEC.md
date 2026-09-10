@@ -26,7 +26,7 @@ One transactional database call selects the server-authoritative batter, locks t
 
 ## Statistics
 
-Derive statistics from plate appearances, runner movements, and lineups; never store averages or career totals on a player. Tables open in Simple view with AVG, OBP, RBIs, and HRs after Player. Advanced view begins with AVG, SLG, OBP and includes G, PA, AB, H, 1B, 2B, 3B, HR, BB, K, R, RBI, SF, FC, ROE, TB, and OPS. CSV downloads follow the selected view.
+Derive statistics from plate appearances, runner movements, and lineups; never store averages or career totals on a player. Tables open in Simple view with AVG, OBP, RBIs, and HRs after Player. Advanced view begins with AVG, OBP, SLG, and OPS, followed by G, PA, AB, H, 1B, 2B, 3B, HR, BB, K, R, RBI, SF, FC, ROE, and TB. CSV downloads follow the selected view.
 
 Supported scopes are season, league across seasons, individual player, all leagues/seasons, and career. v1 rules:
 
@@ -64,8 +64,8 @@ recalculated from the combined denominators instead of averaging season rates.
 Batting tables can be sorted by player or any statistic and downloaded as a descriptive CSV with
 league, season, player, count, and rate columns. CSV is the interchange format for lineup-analysis
 workflows because it is compact, explicit, and directly uploadable to AI assistants. The Players
-page includes all-league career totals and a Hall of Fame that ranks the top three players for a
-user-selected batting category across all time or one selected league season.
+page includes all-league career totals and a Hall of Fame for a user-selected batting category
+across all time or one selected league season.
 
 Inactive players remain attached to historical games but are excluded from the public Players
 directory, career table, Hall of Fame, roster choices, and new-game lineup choices.
