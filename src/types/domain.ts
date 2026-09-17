@@ -177,6 +177,7 @@ export interface BattingRates {
 }
 
 export interface SeasonBattingStats extends BattingCounts, BattingRates {
+  mvp_count: number
   season_id: string
   season_name: string
   league_id: string

@@ -9,6 +9,7 @@ describe('statistics views', () => {
       props: {
         rows: ['Alex', 'Blair'].map((name, index) => ({
           ...calculateBattingLine([{ result: index === 0 ? 'single' : 'home_run' }]),
+          mvp_count: index + 1,
           player_id: name,
           player_name: name,
           season_id: 'season',
@@ -37,9 +38,11 @@ describe('statistics views', () => {
     const toggle = wrapper.findComponent({ name: 'VBtnToggle' })
     toggle.vm.$emit('update:modelValue', 'advanced')
     await wrapper.vm.$nextTick()
-    expect(headers().slice(0, 5)).toEqual(['Player', 'AVG', 'OBP', 'SLG', 'OPS'])
+    expect(headers().slice(0, 5)).toEqual(['Player', 'MVP', 'G', 'PA', 'AB'])
     expect(headers()).not.toContain('HBP')
     expect(headers()).toContain('K%')
+    await wrapper.findAll('th button')[1]!.trigger('click')
+    expect(wrapper.findAll('tbody tr')[0]!.findAll('td')[1]!.text()).toBe('2')
     toggle.vm.$emit('update:modelValue', 'simple')
     await wrapper.vm.$nextTick()
     expect(headers()).toEqual(['Player', 'AVG', 'OBP', 'OPS', 'RBIs', 'HRs'])

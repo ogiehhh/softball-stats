@@ -7,6 +7,7 @@ import { aggregatePlayerStatistics, calculateBattingLine } from './statistics'
 
 function statisticRow(overrides: Partial<SeasonBattingStats> = {}): SeasonBattingStats {
   return {
+    mvp_count: 0,
     season_id: 'season-1',
     season_name: 'Spring',
     league_id: 'league-1',
@@ -112,8 +113,9 @@ describe('date formatting', () => {
 describe('all-time player aggregation', () => {
   it('sums season counts and recalculates rates from combined denominators', () => {
     const rows = aggregatePlayerStatistics([
-      statisticRow(),
+      statisticRow({ mvp_count: 2 }),
       statisticRow({
+        mvp_count: 3,
         season_id: 'season-2',
         season_name: 'Fall',
         at_bats: 1,
@@ -131,6 +133,7 @@ describe('all-time player aggregation', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({
+      mvp_count: 5,
       season_id: 'all-time',
       league_name: 'All leagues',
       games: 2,

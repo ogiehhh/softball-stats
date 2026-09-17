@@ -14,6 +14,7 @@ import {
 
 function row(name: string, hits: number): SeasonBattingStats {
   return {
+    mvp_count: 0,
     season_id: 'season-1',
     season_name: 'Fall 2026',
     league_id: 'league-1',
@@ -81,15 +82,33 @@ describe('statistics table tools', () => {
   it('creates an explicit, AI-friendly CSV and escapes player names', () => {
     const csv = statisticsToCsv([row('Jamie "Jet", Jr.', 2)])
     expect(csv).toContain(
-      'League,Season,Player,Batting average,On-base percentage,Slugging percentage,On-base plus slugging,Games',
+      'League,Season,Player,Game MVPs,Games,Plate appearances,At bats,Runs,Hits',
     )
-    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1.000,1,4,4,2')
+    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",0,1,4,4,0,2')
     expect(csv).not.toMatch(/HBP|Hit by pitch/i)
-    expect(statisticColumns.slice(0, 4).map((column) => column.label)).toEqual([
+    expect(statisticColumns.map((column) => column.label)).toEqual([
+      'MVP',
+      'G',
+      'PA',
+      'AB',
+      'R',
+      'H',
+      '2B',
+      '3B',
+      'HR',
+      'RBI',
+      'BB',
+      'K',
       'AVG',
       'OBP',
       'SLG',
       'OPS',
+      'TB',
+      'SF',
+      'K%',
+      '1B',
+      'FC',
+      'ROE',
     ])
   })
 

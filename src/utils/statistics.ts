@@ -97,7 +97,9 @@ export function calculateBattingLine(events: ScoringFixtureEvent[]): BattingCoun
   return { ...counts, ...calculateRates(counts) }
 }
 
-export function aggregateSeasonStats(lines: SeasonBattingStats[]): BattingCounts & BattingRates {
+export function aggregateSeasonStats(
+  lines: SeasonBattingStats[],
+): BattingCounts & BattingRates & { mvp_count: number } {
   const counts = lines.reduce<BattingCounts>(
     (total, line) => ({
       games: total.games + line.games,
@@ -139,7 +141,11 @@ export function aggregateSeasonStats(lines: SeasonBattingStats[]): BattingCounts
     },
   )
 
-  return { ...counts, ...calculateRates(counts) }
+  return {
+    ...counts,
+    ...calculateRates(counts),
+    mvp_count: lines.reduce((total, line) => total + line.mvp_count, 0),
+  }
 }
 
 export function aggregatePlayerStatistics(lines: SeasonBattingStats[]): SeasonBattingStats[] {

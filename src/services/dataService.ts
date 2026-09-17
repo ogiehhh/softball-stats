@@ -27,6 +27,7 @@ function throwQueryError(message: string, error: { message: string }): never {
 
 function mapSeasonStats(row: SeasonStatsRow): SeasonBattingStats {
   return {
+    mvp_count: 0,
     season_id: row.season_id ?? '',
     season_name: row.season_name ?? '',
     league_id: row.league_id ?? '',
@@ -150,26 +151,31 @@ export async function fetchGamesForSeason(seasonId: string): Promise<Game[]> {
   return data
 }
 
-export async function fetchGameHighlights(gameId: string): Promise<GameHighlight[]> {
+async function fetchHighlightGames(filter: { gameId: string } | { seasonIds: string[] }) {
   assertConfigured()
-  const plays: HighlightPlay[] = []
+  const games = new Map<string, { seasonId: string; plays: HighlightPlay[] }>()
   const pageSize = 500
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('plate_appearances')
       .select(
-        `player_id, result, rbi,
-        games!inner(status, archived_at, seasons!inner(archived_at, leagues!inner(archived_at))),
+        `game_id, player_id, result, rbi,
+        games!inner(season_id, status, archived_at, seasons!inner(archived_at, leagues!inner(archived_at))),
         players!plate_appearances_player_id_fkey(first_name, last_name, display_name),
         runner_advancements(player_id, ending_base, players!runner_advancements_player_id_fkey(first_name, last_name, display_name))`,
       )
-      .eq('game_id', gameId)
       .eq('games.status', 'completed')
       .is('games.archived_at', null)
       .is('games.seasons.archived_at', null)
       .is('games.seasons.leagues.archived_at', null)
+      .order('game_id')
       .order('sequence_no')
       .range(offset, offset + pageSize - 1)
+    query =
+      'gameId' in filter
+        ? query.eq('game_id', filter.gameId)
+        : query.in('games.season_id', filter.seasonIds)
+    const { data, error } = await query
     if (error) throwQueryError('Unable to load game highlights', error)
     const name = (
       person: { display_name: string | null; first_name: string; last_name: string } | null,
@@ -177,23 +183,49 @@ export async function fetchGameHighlights(gameId: string): Promise<GameHighlight
       person
         ? (person.display_name ?? `${person.first_name} ${person.last_name}`.trim())
         : 'Unknown player'
-    plays.push(
-      ...data.map((play) => ({
+    for (const play of data) {
+      let game = games.get(play.game_id)
+      if (!game) {
+        game = { seasonId: play.games.season_id, plays: [] }
+        games.set(play.game_id, game)
+      }
+      game.plays.push({
         player_id: play.player_id,
         player_name: name(play.players),
         result: play.result,
         rbi: play.rbi,
         scorers: play.runner_advancements
           .filter((runner) => runner.ending_base === 'home')
-          .map((runner) => ({
-            player_id: runner.player_id,
-            player_name: name(runner.players),
-          })),
-      })),
-    )
+          .map((runner) => ({ player_id: runner.player_id, player_name: name(runner.players) })),
+      })
+    }
     if (data.length < pageSize) break
   }
-  return gameHighlights(plays)
+  return games
+}
+
+export async function fetchGameHighlights(gameId: string): Promise<GameHighlight[]> {
+  const games = await fetchHighlightGames({ gameId })
+  return gameHighlights(games.get(gameId)?.plays ?? [])
+}
+
+async function withMvpCounts(rows: SeasonBattingStats[]): Promise<SeasonBattingStats[]> {
+  const seasonIds = [...new Set(rows.map((row) => row.season_id))]
+  const counts = new Map<string, number>()
+  // Batch seasons and paginate plays; never truncate an award at the API row limit.
+  for (let start = 0; start < seasonIds.length; start += 50) {
+    const games = await fetchHighlightGames({ seasonIds: seasonIds.slice(start, start + 50) })
+    for (const game of games.values()) {
+      const winner = gameHighlights(game.plays)[0]
+      if (!winner) continue
+      const key = `${game.seasonId}:${winner.player_id}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+  }
+  return rows.map((row) => ({
+    ...row,
+    mvp_count: counts.get(`${row.season_id}:${row.player_id}`) ?? 0,
+  }))
 }
 
 export async function fetchSeasonStatistics(seasonId: string): Promise<SeasonBattingStats[]> {
@@ -205,7 +237,7 @@ export async function fetchSeasonStatistics(seasonId: string): Promise<SeasonBat
     .order('player_name')
 
   if (error) throwQueryError('Unable to load batting statistics', error)
-  return data.map(mapSeasonStats)
+  return withMvpCounts(data.map(mapSeasonStats))
 }
 
 export async function fetchLeagueStatistics(leagueId: string): Promise<SeasonBattingStats[]> {
@@ -219,7 +251,7 @@ export async function fetchLeagueStatistics(leagueId: string): Promise<SeasonBat
   if (error) throwQueryError('Unable to load league statistics', error)
 
   const playerLines = new Map<string, SeasonBattingStats[]>()
-  for (const row of data.map(mapSeasonStats)) {
+  for (const row of await withMvpCounts(data.map(mapSeasonStats))) {
     const lines = playerLines.get(row.player_id) ?? []
     lines.push(row)
     playerLines.set(row.player_id, lines)
@@ -269,7 +301,7 @@ export async function fetchPlayerSeasonStatistics(playerId: string): Promise<Sea
     .order('season_name', { ascending: false })
 
   if (error) throwQueryError('Unable to load player statistics', error)
-  return data.map(mapSeasonStats)
+  return withMvpCounts(data.map(mapSeasonStats))
 }
 
 export async function fetchAllSeasonStatistics(): Promise<SeasonBattingStats[]> {
@@ -281,5 +313,5 @@ export async function fetchAllSeasonStatistics(): Promise<SeasonBattingStats[]> 
     .order('player_name')
 
   if (error) throwQueryError('Unable to load all-time statistics', error)
-  return data.map(mapSeasonStats)
+  return withMvpCounts(data.map(mapSeasonStats))
 }

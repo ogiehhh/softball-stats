@@ -152,12 +152,12 @@ function downloadCsv(): void {
   font-size: 0.75rem;
 }
 .table-frame {
-  overflow-x: auto;
   border-radius: 6px;
   background: rgb(var(--v-theme-surface));
 }
 .stats-table {
   width: 100%;
+  min-width: 0;
 }
 .stats-table:not(.stats-table-advanced) :deep(table) {
   table-layout: fixed;
@@ -166,14 +166,12 @@ function downloadCsv(): void {
   width: 32%;
   min-width: 0;
 }
-.stats-table:not(.stats-table-advanced) td {
+.stats-table td {
   padding-inline: 6px;
 }
-.stats-table:not(.stats-table-advanced) th button {
-  padding-inline: 3px;
-  gap: 0;
-}
-.stats-table-advanced {
+/* Keep overflow inside Vuetify's wrapper so touch scrolling and sticky cells
+   share one scroll container. A minimum on .v-table creates nested scrollers. */
+.stats-table-advanced :deep(table) {
   min-width: 1260px;
 }
 .stats-table th {
@@ -189,8 +187,8 @@ function downloadCsv(): void {
   min-height: 38px;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
-  padding: 0 8px;
+  gap: 0;
+  padding: 0 3px;
   color: inherit;
   font: inherit;
   letter-spacing: inherit;
