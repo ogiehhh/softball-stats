@@ -93,10 +93,10 @@ describe('statistics table tools', () => {
     ])
   })
 
-  it('exports only the four displayed statistics in simple view', () => {
+  it('exports only the five displayed statistics in simple view', () => {
     const csv = statisticsToCsv([row('Alex', 2)], simpleStatisticColumns)
     expect(csv).toBe(
-      'League,Season,Player,Batting average,On-base percentage,Runs batted in,Home runs\r\nMonday Rec,Fall 2026,Alex,.500,.500,0,0\r\n',
+      'League,Season,Player,Batting average,On-base percentage,On-base plus slugging,Runs batted in,Home runs\r\nMonday Rec,Fall 2026,Alex,.500,.500,1.000,0,0\r\n',
     )
   })
 

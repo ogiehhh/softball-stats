@@ -22,7 +22,7 @@ const props = withDefaults(
   },
 )
 
-const sortKey = ref<StatisticSortKey>('player_name')
+const sortKey = ref<StatisticSortKey>('ops')
 const view = ref<'simple' | 'advanced'>('simple')
 const visibleColumns = computed(() =>
   view.value === 'simple' ? simpleStatisticColumns : statisticColumns,
@@ -32,11 +32,11 @@ watch(view, () => {
     sortKey.value !== 'player_name' &&
     !visibleColumns.value.some((column) => column.key === sortKey.value)
   ) {
-    sortKey.value = 'player_name'
-    sortDirection.value = 'asc'
+    sortKey.value = 'ops'
+    sortDirection.value = 'desc'
   }
 })
-const sortDirection = ref<'asc' | 'desc'>('asc')
+const sortDirection = ref<'asc' | 'desc'>('desc')
 const sortedRows = computed(() => sortStatistics(props.rows, sortKey.value, sortDirection.value))
 
 function changeSort(key: StatisticSortKey): void {
@@ -163,7 +163,7 @@ function downloadCsv(): void {
   table-layout: fixed;
 }
 .stats-table:not(.stats-table-advanced) .player-column {
-  width: 40%;
+  width: 32%;
   min-width: 0;
 }
 .stats-table:not(.stats-table-advanced) td {

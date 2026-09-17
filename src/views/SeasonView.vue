@@ -2,6 +2,7 @@
 import { computed, onMounted, watch } from 'vue'
 
 import DataState from '@/components/DataState.vue'
+import GameHighlights from '@/components/GameHighlights.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatsTable from '@/components/StatsTable.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
@@ -72,6 +73,7 @@ watch(() => props.seasonId, load)
               <div v-for="game in page.data.value.games" :key="game.id" class="game-row">
                 <time :datetime="game.played_at">{{ formatDate(game.played_at) }}</time>
                 <strong>vs. {{ game.opponent }}</strong>
+                <GameHighlights class="game-award" :game="game" />
                 <span class="game-result">
                   <small>{{ statusLabel(game.status) }}</small>
                   <b v-if="game.team_score !== null">
@@ -137,7 +139,7 @@ watch(() => props.seasonId, load)
   min-height: 58px;
   align-items: center;
   border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.16);
-  grid-template-columns: 96px minmax(0, 1fr) auto;
+  grid-template-columns: 96px minmax(0, 1fr) minmax(0, auto) auto;
   gap: 12px;
 }
 
@@ -180,6 +182,11 @@ watch(() => props.seasonId, load)
 }
 
 @media (max-width: 599px) {
+  .game-award {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding-bottom: 10px;
+  }
   .game-row {
     grid-template-columns: 70px minmax(0, 1fr) auto;
     gap: 8px;

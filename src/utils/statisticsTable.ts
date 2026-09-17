@@ -39,6 +39,7 @@ export const statisticColumns: StatisticColumn[] = [
 export const simpleStatisticColumns: StatisticColumn[] = [
   { key: 'batting_average', label: 'AVG', csvLabel: 'Batting average', rate: true },
   { key: 'on_base_percentage', label: 'OBP', csvLabel: 'On-base percentage', rate: true },
+  { key: 'ops', label: 'OPS', csvLabel: 'On-base plus slugging', rate: true },
   { key: 'rbi', label: 'RBIs', csvLabel: 'Runs batted in' },
   { key: 'home_runs', label: 'HRs', csvLabel: 'Home runs' },
 ]

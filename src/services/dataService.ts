@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database.generated'
 import type { Game, League, Player, Season, SeasonBattingStats } from '@/types/domain'
 import { aggregateSeasonStats } from '@/utils/statistics'
+import { gameHighlights, type GameHighlight, type HighlightPlay } from '@/utils/gameHighlights'
 
 type SeasonStatsRow = Database['public']['Views']['season_batting_stats']['Row']
 
@@ -147,6 +148,52 @@ export async function fetchGamesForSeason(seasonId: string): Promise<Game[]> {
 
   if (error) throwQueryError('Unable to load games', error)
   return data
+}
+
+export async function fetchGameHighlights(gameId: string): Promise<GameHighlight[]> {
+  assertConfigured()
+  const plays: HighlightPlay[] = []
+  const pageSize = 500
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('plate_appearances')
+      .select(
+        `player_id, result, rbi,
+        games!inner(status, archived_at, seasons!inner(archived_at, leagues!inner(archived_at))),
+        players!plate_appearances_player_id_fkey(first_name, last_name, display_name),
+        runner_advancements(player_id, ending_base, players!runner_advancements_player_id_fkey(first_name, last_name, display_name))`,
+      )
+      .eq('game_id', gameId)
+      .eq('games.status', 'completed')
+      .is('games.archived_at', null)
+      .is('games.seasons.archived_at', null)
+      .is('games.seasons.leagues.archived_at', null)
+      .order('sequence_no')
+      .range(offset, offset + pageSize - 1)
+    if (error) throwQueryError('Unable to load game highlights', error)
+    const name = (
+      person: { display_name: string | null; first_name: string; last_name: string } | null,
+    ) =>
+      person
+        ? (person.display_name ?? `${person.first_name} ${person.last_name}`.trim())
+        : 'Unknown player'
+    plays.push(
+      ...data.map((play) => ({
+        player_id: play.player_id,
+        player_name: name(play.players),
+        result: play.result,
+        rbi: play.rbi,
+        scorers: play.runner_advancements
+          .filter((runner) => runner.ending_base === 'home')
+          .map((runner) => ({
+            player_id: runner.player_id,
+            player_name: name(runner.players),
+          })),
+      })),
+    )
+    if (data.length < pageSize) break
+  }
+  return gameHighlights(plays)
 }
 
 export async function fetchSeasonStatistics(seasonId: string): Promise<SeasonBattingStats[]> {
