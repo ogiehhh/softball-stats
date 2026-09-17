@@ -2,10 +2,11 @@ import type { BattingCounts, BattingRates, SeasonBattingStats } from '@/types/do
 import { formatRate } from '@/utils/formatters'
 
 export type StatisticValueKey = keyof BattingCounts | keyof BattingRates
-export type StatisticSortKey = 'player_name' | StatisticValueKey
+export type StatisticColumnKey = StatisticValueKey | 'strikeout_percentage'
+export type StatisticSortKey = 'player_name' | StatisticColumnKey
 
 export interface StatisticColumn {
-  key: StatisticValueKey
+  key: StatisticColumnKey
   label: string
   csvLabel: string
   rate?: boolean
@@ -27,6 +28,7 @@ export const statisticColumns: StatisticColumn[] = [
   { key: 'rbi', label: 'RBI', csvLabel: 'Runs batted in' },
   { key: 'walks', label: 'BB', csvLabel: 'Walks' },
   { key: 'strikeouts', label: 'K', csvLabel: 'Strikeouts' },
+  { key: 'strikeout_percentage', label: 'K%', csvLabel: 'Strikeout percentage' },
   { key: 'singles', label: '1B', csvLabel: 'Singles' },
   { key: 'sacrifice_flies', label: 'SF', csvLabel: 'Sacrifice flies' },
   { key: 'fielders_choice', label: 'FC', csvLabel: "Fielder's choice" },
@@ -41,6 +43,19 @@ export const simpleStatisticColumns: StatisticColumn[] = [
   { key: 'home_runs', label: 'HRs', csvLabel: 'Home runs' },
 ]
 
+export function statisticValue(row: SeasonBattingStats, key: StatisticColumnKey): number {
+  if (key === 'strikeout_percentage') {
+    return row.plate_appearances > 0 ? row.strikeouts / row.plate_appearances : 0
+  }
+  return row[key]
+}
+
+export function formatStatistic(row: SeasonBattingStats, column: StatisticColumn): string | number {
+  const value = statisticValue(row, column.key)
+  if (column.key === 'strikeout_percentage') return `${(value * 100).toFixed(1)}%`
+  return column.rate ? formatRate(value) : value
+}
+
 export function sortStatistics(
   rows: SeasonBattingStats[],
   key: StatisticSortKey,
@@ -54,7 +69,7 @@ export function sortStatistics(
         multiplier
       )
     }
-    const difference = left[key] - right[key]
+    const difference = statisticValue(left, key) - statisticValue(right, key)
     if (difference !== 0) return difference * multiplier
     return left.player_name.localeCompare(right.player_name, undefined, { sensitivity: 'base' })
   })
@@ -74,7 +89,7 @@ export function statisticsToCsv(
     row.league_name,
     row.season_name,
     row.player_name,
-    ...columns.map((column) => (column.rate ? formatRate(row[column.key]) : row[column.key])),
+    ...columns.map((column) => formatStatistic(row, column)),
   ])
   return [headers, ...lines].map((line) => line.map(escapeCsv).join(',')).join('\r\n') + '\r\n'
 }

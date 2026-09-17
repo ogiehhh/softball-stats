@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import type { SeasonBattingStats } from '@/types/domain'
 
 import {
+  formatStatistic,
+  statisticValue,
   safeDownloadFilename,
   simpleStatisticColumns,
   sortStatistics,
@@ -44,6 +46,29 @@ function row(name: string, hits: number): SeasonBattingStats {
 }
 
 describe('statistics table tools', () => {
+  it('calculates K% from plate appearances and handles players without appearances', () => {
+    const player = { ...row('Alex', 2), strikeouts: 1, plate_appearances: 6 }
+    const column = statisticColumns.find((item) => item.key === 'strikeout_percentage')!
+    expect(statisticValue(player, column.key)).toBeCloseTo(1 / 6)
+    expect(formatStatistic(player, column)).toBe('16.7%')
+    expect(formatStatistic({ ...player, strikeouts: 0, plate_appearances: 0 }, column)).toBe('0.0%')
+    expect(statisticsToCsv([player], [column])).toContain('Alex,16.7%\r\n')
+  })
+
+  it('sorts K% numerically using the unrounded percentage', () => {
+    const rows = [
+      { ...row('Alex', 0), strikeouts: 1, plate_appearances: 10 },
+      { ...row('Blair', 0), strikeouts: 1, plate_appearances: 4 },
+      { ...row('Casey', 0), strikeouts: 0, plate_appearances: 0 },
+    ]
+    expect(
+      sortStatistics(rows, 'strikeout_percentage', 'desc').map((item) => item.player_name),
+    ).toEqual(['Blair', 'Alex', 'Casey'])
+    expect(
+      sortStatistics(rows, 'strikeout_percentage', 'asc').map((item) => item.player_name),
+    ).toEqual(['Casey', 'Alex', 'Blair'])
+  })
+
   it('sorts numeric columns descending with player name as the tie-breaker', () => {
     const rows = [row('Casey', 1), row('Alex', 3), row('Blair', 3)]
     expect(sortStatistics(rows, 'hits', 'desc').map((item) => item.player_name)).toEqual([
@@ -58,9 +83,7 @@ describe('statistics table tools', () => {
     expect(csv).toContain(
       'League,Season,Player,Batting average,On-base percentage,Slugging percentage,On-base plus slugging,Games',
     )
-    expect(csv).toContain(
-      'Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1.000,1,4,4,2',
-    )
+    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",.500,.500,.500,1.000,1,4,4,2')
     expect(csv).not.toMatch(/HBP|Hit by pitch/i)
     expect(statisticColumns.slice(0, 4).map((column) => column.label)).toEqual([
       'AVG',

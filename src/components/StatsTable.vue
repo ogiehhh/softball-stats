@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 
 import type { SeasonBattingStats } from '@/types/domain'
-import { formatRate } from '@/utils/formatters'
 import {
+  formatStatistic,
   sortStatistics,
   simpleStatisticColumns,
   statisticColumns,
@@ -129,7 +129,7 @@ function downloadCsv(): void {
               <span v-else>{{ row.player_name }}</span>
             </td>
             <td v-for="column in visibleColumns" :key="column.key" class="text-end stat-number">
-              {{ column.rate ? formatRate(row[column.key]) : row[column.key] }}
+              {{ formatStatistic(row, column) }}
             </td>
           </tr>
         </tbody>

@@ -22,6 +22,7 @@ describe('statistics views', () => {
     await wrapper.vm.$nextTick()
     expect(headers().slice(0, 5)).toEqual(['Player', 'AVG', 'OBP', 'SLG', 'OPS'])
     expect(headers()).not.toContain('HBP')
+    expect(headers()).toContain('K%')
     toggle.vm.$emit('update:modelValue', 'simple')
     await wrapper.vm.$nextTick()
     expect(headers()).toEqual(['Player', 'AVG', 'OBP', 'RBIs', 'HRs'])
