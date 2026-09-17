@@ -63,10 +63,6 @@ watch(() => [props.game.id, props.game.status, props.game.updated_at], load, { i
               <p>{{ highlight.summary }}</p>
             </li>
           </ol>
-          <p class="muted ranking-note">
-            Ranked by total bases + walks + hit by pitches + runs + RBIs. Ties use OPS, then player
-            name.
-          </p>
         </v-card-text>
         <v-card-actions><v-spacer /><v-btn @click="open = false">Close</v-btn></v-card-actions>
       </v-card>
@@ -101,9 +97,6 @@ watch(() => [props.game.id, props.game.status, props.game.updated_at], load, { i
 .highlight-list p {
   margin-top: 5px;
   font-size: 0.9rem;
-}
-.ranking-note {
-  line-height: 1.5;
 }
 @media (max-width: 599px) {
   .game-highlights {
