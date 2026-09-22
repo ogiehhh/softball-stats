@@ -81,13 +81,10 @@ describe('statistics table tools', () => {
 
   it('creates an explicit, AI-friendly CSV and escapes player names', () => {
     const csv = statisticsToCsv([row('Jamie "Jet", Jr.', 2)])
-    expect(csv).toContain(
-      'League,Season,Player,Game MVPs,Games,Plate appearances,At bats,Runs,Hits',
-    )
-    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",0,1,4,4,0,2')
+    expect(csv).toContain('League,Season,Player,Games,Plate appearances,At bats,Runs,Hits')
+    expect(csv).toContain('Monday Rec,Fall 2026,"Jamie ""Jet"", Jr.",1,4,4,0,2')
     expect(csv).not.toMatch(/HBP|Hit by pitch/i)
     expect(statisticColumns.map((column) => column.label)).toEqual([
-      'MVP',
       'G',
       'PA',
       'AB',
@@ -109,6 +106,7 @@ describe('statistics table tools', () => {
       '1B',
       'FC',
       'ROE',
+      'MVP',
     ])
   })
 

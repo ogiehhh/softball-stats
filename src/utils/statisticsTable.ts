@@ -13,7 +13,6 @@ export interface StatisticColumn {
 }
 
 export const statisticColumns: StatisticColumn[] = [
-  { key: 'mvp_count', label: 'MVP', csvLabel: 'Game MVPs' },
   { key: 'games', label: 'G', csvLabel: 'Games' },
   { key: 'plate_appearances', label: 'PA', csvLabel: 'Plate appearances' },
   { key: 'at_bats', label: 'AB', csvLabel: 'At bats' },
@@ -35,6 +34,7 @@ export const statisticColumns: StatisticColumn[] = [
   { key: 'singles', label: '1B', csvLabel: 'Singles' },
   { key: 'fielders_choice', label: 'FC', csvLabel: "Fielder's choice" },
   { key: 'reached_on_error', label: 'ROE', csvLabel: 'Reached on error' },
+  { key: 'mvp_count', label: 'MVP', csvLabel: 'Game MVPs' },
 ]
 
 export const simpleStatisticColumns: StatisticColumn[] = [
