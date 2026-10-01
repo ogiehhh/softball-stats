@@ -4,9 +4,10 @@ import { computed, onMounted, watch } from 'vue'
 import DataState from '@/components/DataState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { useAsyncResource } from '@/composables/useAsyncResource'
-import { fetchPlayer, fetchPlayerSeasonStatistics } from '@/services/dataService'
-import type { Player, SeasonBattingStats } from '@/types/domain'
+import { fetchPlayer, fetchPlayerGames, fetchPlayerSeasonStatistics } from '@/services/dataService'
+import type { Player, PlayerGameStats, SeasonBattingStats } from '@/types/domain'
 import { formatRate } from '@/utils/formatters'
+import { RESULT_LABELS } from '@/utils/scoring'
 import { aggregateSeasonStats } from '@/utils/statistics'
 
 const props = defineProps<{ playerId: string }>()
@@ -14,7 +15,10 @@ const props = defineProps<{ playerId: string }>()
 interface PlayerPageData {
   player: Player
   seasons: SeasonBattingStats[]
+  games: PlayerGameStats[]
 }
+
+const gameDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
 const page = useAsyncResource<PlayerPageData>()
 const career = computed(() => aggregateSeasonStats(page.data.value?.seasons ?? []))
@@ -39,11 +43,12 @@ const careerRates = computed(() => [
 
 function load(): Promise<void> {
   return page.load(async () => {
-    const [player, seasons] = await Promise.all([
+    const [player, seasons, games] = await Promise.all([
       fetchPlayer(props.playerId),
       fetchPlayerSeasonStatistics(props.playerId),
+      fetchPlayerGames(props.playerId),
     ])
-    return { player, seasons }
+    return { player, seasons, games }
   })
 }
 
@@ -122,6 +127,34 @@ watch(() => props.playerId, load)
             </div>
           </DataState>
         </section>
+        <section aria-labelledby="games-heading" class="mt-8">
+          <h2 id="games-heading" class="section-label">Games</h2>
+          <DataState
+            :empty="page.data.value.games.length === 0"
+            empty-title="No recorded games."
+            :loading="false"
+          >
+            <div class="game-list">
+              <details v-for="line in page.data.value.games" :key="line.game.id" class="game-row">
+                <summary>{{ gameDate.format(new Date(line.game.played_at)) }}</summary>
+                <div class="game-details">
+                  <div class="game-box-score">
+                    <strong>{{ line.hits }}-{{ line.at_bats }}</strong>
+                    <span>{{ line.runs }} R</span>
+                    <span>{{ line.rbi }} RBI</span>
+                    <span v-if="line.walks">{{ line.walks }} BB</span>
+                  </div>
+                  <ol class="at-bat-list">
+                    <li v-for="play in line.plays" :key="play.id">
+                      {{ RESULT_LABELS[play.result]
+                      }}<span v-if="play.rbi"> · {{ play.rbi }} RBI</span>
+                    </li>
+                  </ol>
+                </div>
+              </details>
+            </div>
+          </DataState>
+        </section>
       </template>
     </DataState>
   </main>
@@ -130,6 +163,40 @@ watch(() => props.playerId, load)
 <style scoped>
 .player-shell {
   max-width: 860px;
+}
+
+.game-list {
+  border-top: 1px solid rgba(var(--v-theme-on-background), 0.16);
+}
+
+.game-row {
+  border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.16);
+}
+
+.game-row summary {
+  padding: 16px 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.game-details {
+  padding: 0 0 16px;
+}
+
+.game-box-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.at-bat-list {
+  margin-top: 12px;
+  padding-left: 22px;
+}
+
+.at-bat-list li {
+  padding: 4px 0;
 }
 
 .section-label {

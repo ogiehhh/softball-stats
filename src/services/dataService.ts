@@ -1,7 +1,14 @@
 import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import type { Database } from '@/types/database.generated'
-import type { Game, League, Player, Season, SeasonBattingStats } from '@/types/domain'
-import { aggregateSeasonStats } from '@/utils/statistics'
+import type {
+  Game,
+  League,
+  Player,
+  PlayerGameStats,
+  Season,
+  SeasonBattingStats,
+} from '@/types/domain'
+import { aggregateSeasonStats, calculateBattingLine } from '@/utils/statistics'
 import { gameHighlights, type GameHighlight, type HighlightPlay } from '@/utils/gameHighlights'
 
 type SeasonStatsRow = Database['public']['Views']['season_batting_stats']['Row']
@@ -302,6 +309,65 @@ export async function fetchPlayerSeasonStatistics(playerId: string): Promise<Sea
 
   if (error) throwQueryError('Unable to load player statistics', error)
   return withMvpCounts(data.map(mapSeasonStats))
+}
+
+export async function fetchPlayerGames(playerId: string): Promise<PlayerGameStats[]> {
+  assertConfigured()
+  const games = new Map<string, PlayerGameStats>()
+  const pageSize = 500
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('plate_appearances')
+      .select(
+        'id, result, rbi, games!inner(*, seasons!inner(archived_at, leagues!inner(archived_at)))',
+      )
+      .eq('player_id', playerId)
+      .is('games.archived_at', null)
+      .is('games.seasons.archived_at', null)
+      .is('games.seasons.leagues.archived_at', null)
+      .order('game_id')
+      .order('sequence_no')
+      .range(offset, offset + pageSize - 1)
+    if (error) throwQueryError('Unable to load player games', error)
+    for (const play of data) {
+      let line = games.get(play.games.id)
+      if (!line) {
+        line = { game: play.games, hits: 0, at_bats: 0, runs: 0, rbi: 0, walks: 0, plays: [] }
+        games.set(play.games.id, line)
+      }
+      line.plays.push({ id: play.id, result: play.result, rbi: play.rbi })
+    }
+    if (data.length < pageSize) break
+  }
+  if (!games.size) return []
+  // Runs may be scored on another batter's play.
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('runner_advancements')
+      .select('id, plate_appearances!inner(game_id)')
+      .eq('player_id', playerId)
+      .eq('ending_base', 'home')
+      .order('id')
+      .range(offset, offset + pageSize - 1)
+    if (error) throwQueryError('Unable to load player runs', error)
+    for (const runner of data) {
+      const line = games.get(runner.plate_appearances.game_id)
+      if (line) line.runs += 1
+    }
+    if (data.length < pageSize) break
+  }
+  return [...games.values()]
+    .map((line) => {
+      const stats = calculateBattingLine(line.plays)
+      return {
+        ...line,
+        hits: stats.hits,
+        at_bats: stats.at_bats,
+        rbi: stats.rbi,
+        walks: stats.walks,
+      }
+    })
+    .sort((a, b) => b.game.played_at.localeCompare(a.game.played_at))
 }
 
 export async function fetchAllSeasonStatistics(): Promise<SeasonBattingStats[]> {

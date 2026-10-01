@@ -69,6 +69,16 @@ export interface Player {
   updated_at: string
 }
 
+export interface PlayerGameStats {
+  game: Game
+  hits: number
+  at_bats: number
+  runs: number
+  rbi: number
+  walks: number
+  plays: { id: string; result: PlateAppearanceResult; rbi: number }[]
+}
+
 export interface GameState {
   game_id: string
   inning: number

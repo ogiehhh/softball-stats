@@ -36,7 +36,12 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }))
-import { fetchSeasonStatistics, fetchLeagueStatistics, fetchGameHighlights } from './dataService'
+import {
+  fetchSeasonStatistics,
+  fetchLeagueStatistics,
+  fetchGameHighlights,
+  fetchPlayerGames,
+} from './dataService'
 
 const person = (name: string) => ({ first_name: name, last_name: '', display_name: name })
 const play = (game: string, player: string, result = 'single') => ({
@@ -57,6 +62,73 @@ const rows = ['Alex', 'Blair', 'Casey'].map((player) => ({
 beforeEach(() => {
   execute.mockReset()
   calls.length = 0
+})
+
+describe('player game history', () => {
+  it('keeps batting results in order and counts runs from other batters separately', async () => {
+    const game = { id: 'g1', played_at: '2026-09-23T23:00:00Z' }
+    execute.mockImplementation((table) => ({
+      data:
+        table === 'plate_appearances'
+          ? ['single', 'walk', 'groundout', 'sacrifice_fly', 'strikeout'].map((result, index) => ({
+              id: `pa${index}`,
+              result,
+              rbi: result === 'sacrifice_fly' ? 1 : 0,
+              games: game,
+            }))
+          : [
+              { id: 'run1', plate_appearances: { game_id: 'g1' } },
+              { id: 'archived-run', plate_appearances: { game_id: 'archived-game' } },
+            ],
+      error: null,
+    }))
+    const [line] = await fetchPlayerGames('Alex')
+    expect(line).toMatchObject({ hits: 1, at_bats: 3, runs: 1, rbi: 1, walks: 1 })
+    expect(line?.plays.map((play) => play.result)).toEqual([
+      'single',
+      'walk',
+      'groundout',
+      'sacrifice_fly',
+      'strikeout',
+    ])
+    expect(calls[0]?.filters).toEqual(
+      expect.arrayContaining([
+        ['eq', 'player_id', 'Alex'],
+        ['is', 'games.archived_at', null],
+        ['is', 'games.seasons.archived_at', null],
+        ['is', 'games.seasons.leagues.archived_at', null],
+      ]),
+    )
+  })
+
+  it('continues across page boundaries and sorts games newest first', async () => {
+    execute
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 500 }, (_, index) => ({
+          id: `pa${index}`,
+          result: 'single',
+          rbi: 0,
+          games: { id: 'older', played_at: '2025-09-23T23:00:00Z' },
+        })),
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'latest',
+            result: 'walk',
+            rbi: 0,
+            games: { id: 'newer', played_at: '2026-09-23T23:00:00Z' },
+          },
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: [], error: null })
+    const games = await fetchPlayerGames('Alex')
+    expect(games.map((line) => line.game.id)).toEqual(['newer', 'older'])
+    expect(games[1]?.hits).toBe(500)
+    expect(calls[1]?.filters).toContainEqual(['range', 500, 999])
+  })
 })
 describe('game MVP statistics', () => {
   it('counts one winner per completed game using the highlights ranking, with zero for non-winners', async () => {
